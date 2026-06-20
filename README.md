@@ -2,6 +2,8 @@
 
 *Eight roguelite casino games. One house. The house is you.*
 
+**▶ Play live: https://ceoadlw.github.io/le-casino-rouge/**
+
 A suite of eight single-file, score-attack roguelites built on a shared Balatro-style
 engine — **chips × mult**, 8 antes × 3 blinds, boss effects, a shop of charms /
 consumables, and an interest economy. What differs per game is exactly two things: the
