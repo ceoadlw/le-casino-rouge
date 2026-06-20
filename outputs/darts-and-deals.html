@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Darts &amp; Deals — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .78rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .08rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+
+/* ====================================================================
+   DARTS & DEALS — table layer styles
+   ==================================================================== */
+.dd-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.dd-top { display: flex; gap: var(--space-3); align-items: flex-start; flex-wrap: wrap; }
+
+/* the dartboard */
+.dd-board-wrap { position: relative; width: 340px; flex: 0 0 340px; }
+#dd-board { width: 340px; height: 340px; display: block; }
+#dd-board .bed { cursor: pointer; transition: filter var(--dur-fast); }
+#dd-board .bed:hover { filter: brightness(1.5); }
+#dd-board .bed.aimed { stroke: var(--champagne); stroke-width: 2.2; }
+#dd-board .bed.landed { filter: brightness(2); }
+#dd-board .bed.dead { opacity: .25; }
+#dd-board .bed.wide { stroke: var(--gold-leaf); stroke-width: 1.6; }
+#dd-board.aiming .bed { cursor: crosshair; }
+.bed-num { font-family: var(--font-display); font-weight: 700; font-size: 13px; fill: var(--ivory); text-anchor: middle; pointer-events: none; }
+.dd-dart { pointer-events: none; }
+
+.dd-side { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-width: 220px; }
+.dd-acc { font-family: var(--font-display); font-size: .9rem; letter-spacing: .1em; color: var(--gold-leaf); padding: var(--space-2); text-align: center; }
+.dd-acc b { color: var(--champagne); font-size: 1.2rem; }
+.dd-darts { display: flex; gap: var(--space-2); justify-content: center; padding: var(--space-2); min-height: 92px; }
+.dart-slot {
+  width: 70px; border: 1px solid rgba(201,162,75,.4); border-radius: var(--radius);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  padding: .3rem; min-height: 78px; background: var(--noir-velvet);
+}
+.dart-slot.pending { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239,217,167,.4); }
+.dart-slot.empty { border-style: dashed; opacity: .5; }
+.dart-slot .bed-label { font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: var(--ivory); }
+.dart-slot .bed-val { font-family: var(--font-display); font-size: 1.3rem; color: var(--gold-leaf); }
+.dart-slot.miss .bed-val { color: var(--smoke); }
+.dart-slot .drift-tag { font-size: .55rem; letter-spacing: .08em; color: var(--lipstick); text-transform: uppercase; }
+.dd-aim-hint { text-align: center; font-style: italic; color: var(--smoke); min-height: 1.2rem; }
+.dd-pending-actions { display: flex; gap: var(--space-2); justify-content: center; min-height: 2.4rem; align-items: center; }
+
+.dd-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.dd-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 130px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.dd-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.dd-controls .visit-chip { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); margin-left: auto; }
+
+/* board-targeting modal (omens) */
+#chooser {
+  display: none; position: fixed; inset: 0; z-index: 11;
+  background: rgba(18, 13, 10, .85); align-items: center; justify-content: center;
+}
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 320px; max-width: 600px; max-height: 88vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+#chooser-board { display: none; flex-direction: column; gap: .25rem; }
+#chooser-board.show { display: flex; }
+.wedge-row { display: flex; gap: .3rem; align-items: center; }
+.wedge-row .wn {
+  font-family: var(--font-display); font-weight: 700; width: 2.2rem; text-align: right;
+  color: var(--ivory); padding: .2rem .3rem; border-radius: var(--radius); border: 1px solid transparent;
+}
+.wedge-row .wn.twenty { color: var(--champagne); }
+.wedge-row .wn.pick { cursor: pointer; border-color: var(--gold-leaf); }
+.wedge-row .wn.pick:hover { background: var(--gold-leaf); color: var(--noir-velvet); }
+.wedge-row .rb {
+  font-family: var(--font-display); font-size: .7rem; width: 2.6rem; text-align: center;
+  border: 1px solid var(--smoke); border-radius: var(--radius); color: var(--smoke); padding: .15rem 0;
+}
+.wedge-row .rb.pick { cursor: pointer; color: var(--ivory); border-color: var(--gold-leaf); }
+.wedge-row .rb.pick:hover { background: var(--gold-leaf); color: var(--noir-velvet); }
+.wedge-row .rb.wide { box-shadow: 0 0 6px rgba(239,217,167,.7); color: var(--champagne); }
+.bull-row { display: flex; gap: .3rem; align-items: center; justify-content: flex-start; margin-top: .3rem; }
+
+/* overlay (run over / victory) */
+#overlay {
+  display: none; position: fixed; inset: 0; z-index: 10;
+  background: rgba(18, 13, 10, .85);
+  align-items: center; justify-content: center;
+}
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; DARTS &amp; DEALS</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Darts &amp; <span style="color:var(--lipstick)">Deals</span></h1>
+      <p class="flavor">A quiver of crooked arrows.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Visits</div><div class="value" id="rail-visits">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Re-throws</div><div class="value" id="rail-rethrows">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="dd-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="dd-top">
+          <div class="dd-board-wrap panel">
+            <svg id="dd-board" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+          <div class="dd-side panel">
+            <div class="dd-acc" id="dd-acc">ACCURACY <b id="acc-val">60%</b></div>
+            <div class="dd-darts" id="dd-darts"></div>
+            <div class="dd-aim-hint" id="aim-hint">Click a bed on the board to aim &amp; throw.</div>
+            <div class="dd-pending-actions">
+              <button class="primary" id="btn-keep" hidden>Keep</button>
+              <button id="btn-rethrow" hidden>Re-throw (3)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dd-result panel">
+          <div>
+            <div id="result-label" class="flavor">Four visits. Three darts each. Make them count.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">The visit's best event appears here after the third dart.</li></ul></div>
+        <div class="dd-controls">
+          <button id="btn-newvisit" hidden>Next Visit</button>
+          <span class="visit-chip" id="visit-chip">&mdash;</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-board"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>darts-and-deals.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+/* ====================================================================
+   DARTS & DEALS — game module (spec.md §3.6, revised ladder)
+   Runs on the shared spine (rouge-spine.js): Rouge.run.configure() at the
+   bottom plugs in the save key + initial run state.
+
+   Atomic object: the Bed — every wedge's single/double/triple plus the two
+   bulls. Board-editing IS the deck-building: renumber wedges, widen beds
+   (raise their hit chance), calibrate the throw. Enhancements/seals attach
+   to beds later (prompt 17).
+
+   Play: the Visit — 3 darts (this game's hand), 4 visits + 3 re-throws per
+   blind. Aim a bed; base 60% accuracy hits it, else the PRNG drifts to an
+   adjacent wedge or ring. A dart lands PENDING → Keep, or Re-throw (re-roll
+   the scatter — the discard analog). The visit scores its single best event.
+   ==================================================================== */
+const BD = (() => {
+  const VISITS_PER_BLIND = 4, RETHROWS_PER_BLIND = 3, DARTS_PER_VISIT = 3;
+  const BASE_ACCURACY = 0.60, ACC_MIN = 0.05, ACC_MAX = 0.82; // ceiling lowered from .97 in the 2026-06-14
+  // hardening pass: at .97 the bot's stacked accuracy made three-T20 (a 180) almost automatic, so One-Eighty
+  // scored ~95% of visits and the rest of the ladder was dead. An .82 cap keeps 180s aspirational.
+  const INTEREST_STEP = 5, INTEREST_CAP = 5; // $1 per $5 held, cap $5 (spec §2.7)
+
+  // standard clockface order, position 0 = top, clockwise
+  const CLOCKFACE = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+  const RINGS = ["s", "d", "t"];
+  const RING_MULT = { s: 1, d: 2, t: 3 };
+  const RING_NAME = { s: "S", d: "D", t: "T" };
+  const numBedKey = (pos, ring) => `${pos}${ring}`;
+  const neighborPos = (pos, dir) => (pos + dir + 20) % 20;
+
+  function freshWedges() { return CLOCKFACE.slice(); }
+
+  // skip tags (spec §2.3)
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +1 visit." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder ----------------
+     Weakest → strongest. A visit scores its single BEST (highest-rung)
+     qualifying event. Each dart's landed value (wedge × ring) adds to base
+     chips before mult. One-Eighty (three triple-20s) and Hat Trick (three
+     bullseyes) are kept DISJOINT from Three in a Bed so all ten rungs stay
+     live and levelable — a 180 scores as One-Eighty, three bulls as Hat
+     Trick, any other identical-bed trio as the secret Three in a Bed. */
+  // Rebased in the 2026-06-14 hardening pass: the big dart-value chips (a 180 = 180 chips) multiplied by
+  // the original mults crushed the 300-target A1 (median 8×) and One-Eighty ran away with every visit.
+  // Mults cut hard so the dart values carry the floor and Marker/charm mult carries the 333×-over-8-antes
+  // curve; One-Eighty/Three-in-a-Bed stay the jackpots without trivializing the early game.
+  const LADDER = [
+    { rung: 1,  key: "open",     name: "Open Visit",      chips: 12, mult: 1, up: { c: 8,  m: 1 } },
+    { rung: 2,  key: "pair",     name: "Matched Pair",    chips: 18, mult: 1, up: { c: 10, m: 1 } },
+    { rung: 3,  key: "trips",    name: "Three of a Kind", chips: 26, mult: 2, up: { c: 12, m: 1 } },
+    { rung: 4,  key: "ton",      name: "Ton",             chips: 30, mult: 2, up: { c: 12, m: 1 } },
+    { rung: 5,  key: "bull",     name: "Bull Visit",      chips: 36, mult: 2, up: { c: 15, m: 2 } },
+    { rung: 6,  key: "shanghai", name: "Shanghai",        chips: 48, mult: 3, up: { c: 18, m: 2 } },
+    { rung: 7,  key: "ton40",    name: "Ton-Forty",       chips: 52, mult: 3, up: { c: 18, m: 2 } },
+    { rung: 8,  key: "hattrick", name: "Hat Trick",       chips: 70, mult: 4, up: { c: 24, m: 3 } },
+    { rung: 9,  key: "oneeighty",name: "One-Eighty",      chips: 75, mult: 4, up: { c: 25, m: 3 } },
+    { rung: 10, key: "bed",      name: "Three in a Bed",  chips: 90, mult: 5, up: { c: 30, m: 4 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+  const TOP_KEYS = new Set(["hattrick", "oneeighty", "bed"]); // the famous trio (scaling-charm fodder)
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes. onEvent mutates the candidate event's
+     ctx.chips / ctx.mult in STRICT left-to-right bar order while the visit
+     picks its best-scoring event; counter hooks (onVisitEnd) fire once after,
+     from the visit's facts. ctx.visit carries the visit's darts + facts. */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat — always-on chips
+    wireworker: { name: "The Wireworker", type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+25 Chips per triple-ring dart in the visit",
+      onEvent: (i, c) => { c.chips += 25 * c.visit.tripleHits; } },
+    fletching:  { name: "Fletching",      type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+15 Chips per double-ring dart in the visit",
+      onEvent: (i, c) => { c.chips += 15 * c.visit.doubleHits; } },
+    sponsor:    { name: "Sponsor's Logo", type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+60 Chips on any visit with a dart in a bull",
+      onEvent: (i, c) => { if (c.visit.bullHits > 0) c.chips += 60; } },
+    // scaling — grows over the run
+    toncounter: { name: "Ton Counter",    type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every visit (+1 per Ton this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onVisitEnd: (i, e) => { if (e.facts.total >= 100) i.state.m += 1; } },
+    practice:   { name: "Practice Board",  type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ c: 0 }),
+      desc: s => `+${s.c} Chips on every visit (+2 per visit thrown this run)`,
+      onEvent: (i, c) => { c.chips += i.state.c; },
+      onVisitEnd: i => { i.state.c += 2; } },
+    ninedream:  { name: "Nine-Darter Dream", type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every visit (+1 per Hat Trick, One-Eighty or Three in a Bed this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onVisitEnd: (i, e) => { if (TOP_KEYS.has(e.scoredKey)) i.state.m += 1; } },
+    // conditional
+    doubletop:  { name: "Double Top",     type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×2 Mult on visits containing a double-ring hit",
+      onEvent: (i, c) => { if (c.visit.doubleHits > 0) c.mult *= 2; } },
+    trebletrbl: { name: "Treble Trouble", type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+5 Mult on visits containing a triple-ring hit",
+      onEvent: (i, c) => { if (c.visit.tripleHits > 0) c.mult += 5; } },
+    bullhunter: { name: "Bullhunter",     type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+40 Chips per bull dart in the visit",
+      onEvent: (i, c) => { c.chips += 40 * c.visit.bullHits; } },
+    checkout:   { name: "Checkout King",  type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "×2 Mult on visits totalling 140 or more",
+      onEvent: (i, c) => { if (c.visit.total >= 140) c.mult *= 2; } },
+    // economy
+    bookie:     { name: "The Bookie",     type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $2 on every Matched Pair",
+      onVisitEnd: (i, e) => { if (e.facts.pair) { e.run.money += 2; e.moneyGained.n += 2; } } },
+    promoter:   { name: "The Promoter",   type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["The Promoter", 3] },
+    suite:      { name: "Hospitality Suite", type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    sidebet:    { name: "Side Bet",       type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    // ×mult
+    maximiser:  { name: "The Maximiser",  type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×3 Mult on any visit of 100+",
+      onEvent: (i, c) => { if (c.visit.total >= 100) c.mult *= 3; } },
+    polish:     { name: "Tungsten Polish", type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every visit",
+      onEvent: (i, c) => { c.mult *= 1.5; } },
+    ninedarter: { name: "The Nine-Darter", type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult when the visit scores Shanghai or better",
+      onEvent: (i, c) => { if (c.event.rung >= 6) c.mult *= 3; } },
+    // utility
+    leadoff:    { name: "Steady Leadoff", type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "The first dart of each visit cannot drift",
+      firstDartSure: true },
+    steadyhand: { name: "Steady Hand",    type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+10% accuracy on every throw",
+      accBonus: 0.10 },
+    fifthvisit: { name: "The Fifth Visit", type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+1 visit each blind",
+      extraVisits: 1 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2);
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] === true ? 0 : (CHARMS[inst.id][flag] ?? 0)), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     Board-editing is the deck manipulation: The Reamer widens a bed
+     (raises its hit chance), The Engraver / The Cartograph renumber wedges
+     to 20 (so drift lands on value), Calibrate raises accuracy run-long.
+     use kinds: instant / chooser / target (a board modal: bed or wedge). */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    // tier I — minor
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    reamer:   { name: "The Reamer",      tier: 1, cost: 4, use: "target", target: { kind: "bed", count: 1 },
+      desc: "Widen a chosen bed: +20% accuracy when you aim it" },
+    // tier II — major
+    housemarker: { name: "House Marker", tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    engraver: { name: "The Engraver",    tier: 2, cost: 6, use: "target", target: { kind: "wedge", count: 1 },
+      desc: "Renumber a chosen wedge to 20" },
+    calibrate:{ name: "Calibrate",       tier: 2, cost: 6, use: "instant",
+      desc: "+8% accuracy on every throw for the rest of the run",
+      apply: run => { run.accBonus = +(Math.min(0.4, (run.accBonus ?? 0) + 0.08)).toFixed(2); return `accuracy +8%`; } },
+    tonic:    { name: "Steady Tonic",    tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+1 visit this blind",
+      apply: () => { blind.visitsTotal += 1; blind.visitsLeft += 1; return "+1 visit"; } },
+    // tier III — prime
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    cartograph: { name: "The Cartograph", tier: 3, cost: 9, use: "target", target: { kind: "wedge", count: 1 }, cluster: true,
+      desc: "Renumber a chosen wedge AND both its neighbours to 20 — a cluster of twenties" },
+    marksman: { name: "Marksman's Ledger", tier: 3, cost: 9, use: "instant",
+      desc: "Three in a Bed levels up twice and One-Eighty once",
+      apply: run => { bumpLevel(run, "bed", 2); bumpLevel(run, "oneeighty", 1); return "the famous shots gleam"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warps (spec §2.4) ---------------- */
+  const BOSSES = {
+    wobble:     { name: "The Wobble", minAnte: 2,
+      desc: "Accuracy is halved this blind" },
+    closedring: { name: "The Closed Ring", minAnte: 2,
+      desc: "Triple beds score nothing — they land for zero value" },
+    shortvisit: { name: "The Short Visit", minAnte: 2,
+      desc: "Visits are two darts instead of three" },
+    crookedwire:{ name: "The Crooked Wire",
+      desc: "Any drifted dart scores zero value" },
+    repoman:    { name: "The Repo Man",
+      desc: "Hitting the same wedge twice voids the visit's combo — only Open Visit can score" },
+    deadbull:   { name: "The Dead Bull",
+      desc: "Both bulls score nothing — no value from 25 or 50" },
+    entryfee:   { name: "The Entry Fee",
+      desc: "Each visit costs $1" },
+    pitboss:    { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" },
+    eye:        { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No scoring event may be scored twice this blind" },
+    houseedge:  { name: "The House Edge", minAnte: 3,
+      desc: "Every event's base Mult is halved (minimum 1)" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ---------------- state ---------------- */
+  let blind = null;     // {idx, target, score, visitsTotal/Left, rethrowsTotal/Left, dartsPerVisit, won, scored:Set, banned, ...}
+  let visit = null;     // {darts:[landed], aim, dartIdx, charged} — the visit in progress
+  let pending = null;   // {landed} — a thrown, uncommitted dart
+  let lastSeed = "";
+  let targeting = null; // {idx, kind, left, applied, cluster, name} while a board omen aims
+  let chooserOmenIdx = null;
+
+  /* ---------------- bed helpers — all take (run, …) so the sim shares them ---------------- */
+  const wideOf = (run, bed) => run.wide[bed.kind === "bull" ? "b" + bed.bull : numBedKey(bed.pos, bed.ring)] ?? 0;
+
+  function displayAccuracy(run = Rouge.run.current, boss = bossId()) {
+    let a = BASE_ACCURACY + (run.accBonus ?? 0) + charmFlag(run, "accBonus");
+    a = Math.min(ACC_MAX, Math.max(ACC_MIN, a));
+    if (boss === "wobble") a *= 0.5;
+    return a;
+  }
+  function aimAccuracy(run, aim, boss) {
+    let a = BASE_ACCURACY + (run.accBonus ?? 0) + charmFlag(run, "accBonus") + 0.20 * wideOf(run, aim);
+    a = Math.min(ACC_MAX, Math.max(ACC_MIN, a));
+    if (boss === "wobble") a *= 0.5;
+    return a;
+  }
+
+  // one throw → a landed bed (with .drifted). Shared by the live table and BD.simulate.
+  function resolveThrow(run, aim, boss, isFirstDart) {
+    const sure = isFirstDart && anyCharmFlag(run, "firstDartSure");
+    if (sure || Rouge.rng.random() < aimAccuracy(run, aim, boss)) {
+      return aim.kind === "bull" ? { kind: "bull", bull: aim.bull, drifted: false }
+                                 : { kind: "num", pos: aim.pos, ring: aim.ring, drifted: false };
+    }
+    // miss → drift (adjacent wedge or adjacent ring; bulls scatter out)
+    if (aim.kind === "bull") {
+      if (Rouge.rng.random() < 0.5) return { kind: "bull", bull: aim.bull === "eye" ? "outer" : "eye", drifted: true };
+      return { kind: "num", pos: Rouge.rng.int(0, 19), ring: "s", drifted: true };
+    }
+    if (Rouge.rng.random() < 0.5) { // adjacent wedge, same ring
+      const dir = Rouge.rng.random() < 0.5 ? -1 : 1;
+      return { kind: "num", pos: neighborPos(aim.pos, dir), ring: aim.ring, drifted: true };
+    }
+    // adjacent ring, same wedge
+    const ring = aim.ring === "s" ? Rouge.rng.pick(["d", "t"]) : "s";
+    return { kind: "num", pos: aim.pos, ring, drifted: true };
+  }
+
+  function bedValue(run, bed, boss) {
+    if (boss === "crookedwire" && bed.drifted) return 0;
+    if (bed.kind === "bull") return boss === "deadbull" ? 0 : (bed.bull === "eye" ? 50 : 25);
+    if (boss === "closedring" && bed.ring === "t") return 0;
+    return run.wedges[bed.pos] * RING_MULT[bed.ring];
+  }
+
+  function bedLabel(run, bed) {
+    if (bed.kind === "bull") return bed.bull === "eye" ? "BULL" : "25";
+    return RING_NAME[bed.ring] + run.wedges[bed.pos];
+  }
+
+  /* ---------------- visit facts + best-event scoring ---------------- */
+  function visitFacts(run, darts, boss) {
+    const vals = darts.map(d => bedValue(run, d, boss));
+    const total = vals.reduce((a, b) => a + b, 0);
+    const nums = darts.filter(d => d.kind === "num");
+    const posCount = {};
+    nums.forEach(d => { posCount[d.pos] = (posCount[d.pos] ?? 0) + 1; });
+    const maxSame = Math.max(0, ...Object.values(posCount));
+    const n = darts.length;
+    const allNum = nums.length === n;
+    const samePos = allNum && new Set(nums.map(d => d.pos)).size === 1;
+    const tripleHits = darts.filter(d => d.kind === "num" && d.ring === "t").length;
+    const doubleHits = darts.filter(d => d.kind === "num" && d.ring === "d").length;
+    const bullHits = darts.filter(d => d.kind === "bull").length;
+    const pair = maxSame >= 2;
+    const trips = n >= 3 && maxSame >= 3;
+    const shanghai = n >= 3 && samePos && new Set(nums.map(d => d.ring)).size === 3;
+    const hattrick = n >= 3 && darts.every(d => d.kind === "bull" && d.bull === "eye");
+    const oneeighty = n >= 3 && allNum && darts.every(d => d.ring === "t" && run.wedges[d.pos] === 20);
+    const bed = n >= 3 && samePos && new Set(nums.map(d => d.ring)).size === 1 && !oneeighty;
+    return { vals, total, tripleHits, doubleHits, bullHits, pair, trips, shanghai, hattrick, oneeighty, bed,
+             ton: total >= 100, ton40: total >= 140, anyBull: bullHits > 0, wedgeDoubled: maxSame >= 2 };
+  }
+
+  function qualifyingKeys(f) { // highest-rung first
+    const keys = [];
+    if (f.bed) keys.push("bed");
+    if (f.oneeighty) keys.push("oneeighty");
+    if (f.hattrick) keys.push("hattrick");
+    if (f.ton40) keys.push("ton40");
+    if (f.shanghai) keys.push("shanghai");
+    if (f.anyBull) keys.push("bull");
+    if (f.ton) keys.push("ton");
+    if (f.trips) keys.push("trips");
+    if (f.pair) keys.push("pair");
+    keys.push("open");
+    return keys.sort((a, b) => RUNG[b].rung - RUNG[a].rung);
+  }
+
+  function eventBase(e, run, boss) {
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    let chips = e.chips + lvl * e.up.c;
+    let mult = e.mult + lvl * e.up.m;
+    if (boss === "houseedge") mult = Math.max(1, Math.ceil(mult / 2));
+    return { chips, mult };
+  }
+
+  /* headless visit scoring — the live table and BD.simulate share this */
+  function scoreVisit(run, blindState, boss, darts) {
+    const f = visitFacts(run, darts, boss);
+    let keys = qualifyingKeys(f);
+    if (boss === "repoman" && f.wedgeDoubled) keys = ["open"];      // combo voided
+    if (boss === "pitboss") keys = keys.filter(k => k !== blindState.banned);
+    if (boss === "eye") keys = keys.filter(k => !blindState.scored.has(k)); // can't repeat a scored event
+    const visitCtx = {
+      darts, total: f.total, tripleHits: f.tripleHits, doubleHits: f.doubleHits,
+      bullHits: f.bullHits, pair: f.pair
+    };
+    let gain = 0, scoredKey = null, detail = null;
+    if (keys.length) {
+      const e = RUNG[keys[0]];                 // best = highest qualifying rung
+      const base = eventBase(e, run, boss);
+      const ctx = { event: e, visit: visitCtx, chips: base.chips + f.total, mult: base.mult, run };
+      for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx); // strict left-to-right
+      gain = Math.floor(ctx.chips * ctx.mult);
+      scoredKey = e.key;
+      detail = { name: e.name, chips: ctx.chips, mult: ctx.mult, score: gain };
+      if (boss === "eye") blindState.scored.add(e.key);
+    }
+    const moneyGained = { n: 0 };
+    for (const inst of run.charms) CHARMS[inst.id].onVisitEnd?.(inst, { facts: f, scoredKey, run, moneyGained });
+    run.stats.visits++;
+    run.stats.darts += darts.length;
+    if (f.total > run.stats.bestVisit) run.stats.bestVisit = f.total;
+    return { gain, scoredKey, detail, facts: f, dartLabels: darts.map(d => ({ label: bedLabel(run, d), val: f.vals[darts.indexOf(d)], drifted: d.drifted })),
+             moneyGained: moneyGained.n };
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+
+  /* ---------------- blind flow ---------------- */
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { visits: 0, darts: 0, bestVisit: 0, best: 0, beaten: 0, skips: 0, rethrows: 0 };
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.wedges) run.wedges = freshWedges();
+    run.wide ??= {};
+    run.accBonus ??= 0;
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0);
+    const usedTags = [];
+    let visits = VISITS_PER_BLIND + charmFlag(run, "extraVisits");
+    let rethrows = RETHROWS_PER_BLIND;
+    let rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { visits++; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    const boss = idx === 2 ? run.boss : null;
+    const darts = boss === "shortvisit" ? 2 : DARTS_PER_VISIT;
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              visitsTotal: visits, visitsLeft: visits,
+              rethrowsTotal: rethrows, rethrowsLeft: rethrows,
+              dartsPerVisit: darts, won: false, rewardMult, usedTags,
+              scored: new Set(), banned: null };
+    if (boss === "pitboss") {
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    const bb = $("boss-banner");
+    if (boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[boss].name}</b> &mdash; ${BOSSES[boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    visit = null;
+    pending = null;
+    $("breakdown-list").innerHTML = '<li class="flavor">The visit\'s best event appears here after the third dart.</li>';
+    $("result-label").textContent = "Four visits. Three darts each. Make them count.";
+    $("result-gain").textContent = "";
+    $("win-banner").classList.remove("show");
+    $("win-banner").innerHTML = "";
+    newVisit();
+    buildBoard();
+    renderCharms();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    renderAccuracy();
+    Rouge.router.go("table");
+  }
+
+  /* ---------------- the dartboard (SVG) ---------------- */
+  const C = 170;
+  const RADII = { eye: 14, ob: 26, inS: 78, tIn: 78, tOut: 90, outS: 138, dIn: 138, dOut: 150 };
+  const bedEls = {}; // bedKey -> path element, for landed/aimed highlight
+  const NS = "http://www.w3.org/2000/svg";
+  const ptStr = (aDeg, rad) => {
+    const a = aDeg * Math.PI / 180;
+    return `${(C + rad * Math.sin(a)).toFixed(2)},${(C - rad * Math.cos(a)).toFixed(2)}`;
+  };
+  function sector(rIn, rOut, a0, a1) {
+    return `M ${ptStr(a0, rIn)} L ${ptStr(a0, rOut)} A ${rOut} ${rOut} 0 0 1 ${ptStr(a1, rOut)} ` +
+           `L ${ptStr(a1, rIn)} A ${rIn} ${rIn} 0 0 0 ${ptStr(a0, rIn)} Z`;
+  }
+  function bedFill(pos, ring) {
+    const even = pos % 2 === 0;
+    if (ring === "s") return even ? "#1E1611" : "#251b14";
+    return even ? "#8A1B2B" : "#6e5320"; // triples & doubles: crimson / antique gold, alternating
+  }
+
+  function buildBoard() {
+    const run = Rouge.run.current;
+    const svg = $("dd-board");
+    svg.innerHTML = "";
+    const g = document.createElementNS(NS, "g");
+    const th = 18;
+    for (let pos = 0; pos < 20; pos++) {
+      const a0 = pos * th - th / 2, a1 = pos * th + th / 2;
+      // single = inner band + outer band, one clickable compound path
+      addBed(g, run, { kind: "num", pos, ring: "s" },
+        sector(RADII.ob, RADII.tIn, a0, a1) + " " + sector(RADII.tOut, RADII.dIn, a0, a1));
+      addBed(g, run, { kind: "num", pos, ring: "t" }, sector(RADII.tIn, RADII.tOut, a0, a1));
+      addBed(g, run, { kind: "num", pos, ring: "d" }, sector(RADII.dIn, RADII.dOut, a0, a1));
+      // wedge number
+      const [lx, ly] = ptStr(pos * th, 162).split(",");
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", lx); t.setAttribute("y", ly); t.setAttribute("dy", ".35em");
+      t.setAttribute("class", "bed-num");
+      t.textContent = run.wedges[pos];
+      g.appendChild(t);
+    }
+    // bulls
+    const ob = document.createElementNS(NS, "circle");
+    ob.setAttribute("cx", C); ob.setAttribute("cy", C); ob.setAttribute("r", RADII.ob);
+    bedAttrs(ob, { kind: "bull", bull: "outer" }); ob.setAttribute("fill", "#8A1B2B");
+    g.appendChild(ob); bedEls["bouter"] = ob;
+    const eye = document.createElementNS(NS, "circle");
+    eye.setAttribute("cx", C); eye.setAttribute("cy", C); eye.setAttribute("r", RADII.eye);
+    bedAttrs(eye, { kind: "bull", bull: "eye" }); eye.setAttribute("fill", "#C9A24B");
+    g.appendChild(eye); bedEls["beye"] = eye;
+    const rim = document.createElementNS(NS, "circle");
+    rim.setAttribute("cx", C); rim.setAttribute("cy", C); rim.setAttribute("r", RADII.dOut);
+    rim.setAttribute("fill", "none"); rim.setAttribute("stroke", "#C9A24B"); rim.setAttribute("stroke-width", "2");
+    rim.style.pointerEvents = "none";
+    svg.appendChild(g);
+    svg.appendChild(rim);
+    applyBoardMods();
+    syncBoardAiming();
+  }
+  function bedAttrs(el, bed) {
+    el.classList.add("bed");
+    el.dataset.kind = bed.kind;
+    if (bed.kind === "bull") el.dataset.bull = bed.bull;
+    else { el.dataset.pos = bed.pos; el.dataset.ring = bed.ring; }
+    el.addEventListener("click", () => aimAndThrow(bed));
+  }
+  function addBed(g, run, bed, d) {
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", d);
+    p.setAttribute("fill", bedFill(bed.pos, bed.ring));
+    p.setAttribute("stroke", "rgba(201,162,75,.35)");
+    p.setAttribute("stroke-width", ".6");
+    bedAttrs(p, bed);
+    g.appendChild(p);
+    bedEls[numBedKey(bed.pos, bed.ring)] = p;
+  }
+  function applyBoardMods() { // widen glow + boss dead beds
+    const run = Rouge.run.current, boss = bossId();
+    for (let pos = 0; pos < 20; pos++) for (const ring of RINGS) {
+      const el = bedEls[numBedKey(pos, ring)];
+      el.classList.toggle("wide", (run.wide[numBedKey(pos, ring)] ?? 0) > 0);
+      el.classList.toggle("dead", boss === "closedring" && ring === "t");
+    }
+    bedEls["beye"].classList.toggle("dead", boss === "deadbull");
+    bedEls["bouter"].classList.toggle("dead", boss === "deadbull");
+  }
+  function syncBoardAiming() {
+    const live = !!visit && !pending && visit.darts.length < blind.dartsPerVisit && !blind.won && !targeting;
+    $("dd-board").classList.toggle("aiming", live);
+  }
+  function highlightLanded(bed) {
+    Object.values(bedEls).forEach(el => el.classList.remove("landed"));
+    const key = bed.kind === "bull" ? "b" + bed.bull : numBedKey(bed.pos, bed.ring);
+    bedEls[key]?.classList.add("landed");
+  }
+
+  /* ---------------- the Visit — live flow ---------------- */
+  function newVisit() {
+    visit = { darts: [], charged: false };
+    pending = null;
+    $("btn-newvisit").hidden = true;
+    $("result-gain").textContent = "";
+    renderDarts();
+    syncBoardAiming();
+    syncControls();
+  }
+
+  function aimAndThrow(bed) {
+    if (!visit || pending || blind.won || targeting) return;
+    if (visit.darts.length >= blind.dartsPerVisit) return;
+    const run = Rouge.run.current, boss = bossId();
+    if (boss === "entryfee" && !visit.charged) { visit.charged = true; run.money = Math.max(0, run.money - 1); renderRail(); }
+    const landed = resolveThrow(run, bed, boss, visit.darts.length === 0);
+    Rouge.run.persist(); // commit the advanced rng — the scatter can't be save-scummed
+    Rouge.audio.play("dice");
+    pending = { aim: bed, landed };
+    highlightLanded(landed);
+    renderDarts();
+    syncBoardAiming();
+    syncControls();
+  }
+
+  function rethrow() {
+    if (!pending || blind.rethrowsLeft === 0) return;
+    blind.rethrowsLeft--;
+    Rouge.run.current.stats.rethrows++;
+    pending.landed = resolveThrow(Rouge.run.current, pending.aim, bossId(), visit.darts.length === 0);
+    Rouge.run.persist();
+    Rouge.audio.play("dice");
+    highlightLanded(pending.landed);
+    renderDarts();
+    renderRail();
+    syncControls();
+  }
+
+  function keepDart() {
+    if (!pending) return;
+    visit.darts.push(pending.landed);
+    pending = null;
+    if (visit.darts.length >= blind.dartsPerVisit) scoreCurrentVisit();
+    else { renderDarts(); syncBoardAiming(); syncControls(); }
+  }
+
+  function scoreCurrentVisit() {
+    const run = Rouge.run.current, boss = bossId();
+    const res = scoreVisit(run, blind, boss, visit.darts);
+    blind.score += res.gain;
+    blind.visitsLeft--;
+    if (res.gain > run.stats.best) run.stats.best = res.gain;
+    if (res.scoredKey && res.scoredKey !== "open") Rouge.audio.play("point");
+
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    const darts = res.dartLabels.map(d => `<li><span class="ev">${d.label}${d.drifted ? " ·drift" : ""}</span><span class="math"><span class="c">${d.val}</span></span></li>`).join("");
+    const evLine = res.detail
+      ? `<li><span class="ev">${res.detail.name}</span><span class="math"><span class="c">${fmt(res.detail.chips)}</span> × <span class="m">${fmtMult(res.detail.mult)}</span> = <b>${fmt(res.detail.score)}</b></span></li>`
+      : `<li class="flavor">No event scored this visit.</li>`;
+    $("breakdown-list").innerHTML = darts + evLine;
+    $("result-label").textContent = res.detail
+      ? `Visit total ${res.facts.total} — ${res.detail.name}.`
+      : "The visit scores nothing.";
+    $("result-gain").textContent = res.gain > 0
+      ? `+${fmt(res.gain)}${res.moneyGained ? ` · +$${res.moneyGained}` : ""}`
+      : (res.moneyGained ? `+$${res.moneyGained}` : "");
+
+    renderDarts();
+    renderCharms();
+    renderRail();
+    Object.values(bedEls).forEach(el => el.classList.remove("landed"));
+    if (blind.score >= blind.target && !blind.won) winBlind();
+    else if (blind.visitsLeft === 0) { syncControls(); syncBoardAiming(); Rouge.run.persist(); loseRun(); return; }
+    else $("btn-newvisit").hidden = false;
+    syncBoardAiming();
+    syncControls();
+    Rouge.run.persist();
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Darts & Deals nails the double to check out."
+      : `The board went cold — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed], ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`], ["Blinds beaten", run.stats.beaten], ["Blinds skipped", run.stats.skips],
+      ["Visits thrown", run.stats.visits], ["Darts thrown", run.stats.darts],
+      ["Re-throws used", run.stats.rethrows], ["Best visit total", run.stats.bestVisit], ["Best visit score", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens edit the board via a modal: The Reamer widens a bed,
+     The Engraver / The Cartograph renumber wedges to 20. Between visits. */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    const midDart = !!pending;
+    if (o.use === "target") return onTable && !!blind && !blind.won && !midDart;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && !midDart && blind.visitsLeft > 0;
+    return !midDart || !onTable;
+  }
+
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") consumeOmen(idx, o.apply(run));
+    else if (o.use === "chooser") openChooser(idx);
+    else { targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0, cluster: !!o.cluster, name: o.name }; openBoardModal(); }
+  }
+
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens(); renderLadder(); renderRail(); renderAccuracy();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+
+  function openBoardModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    $("chooser-board").classList.add("show");
+    renderBoardModal();
+    $("chooser").classList.add("show");
+  }
+
+  function renderBoardModal() {
+    const run = Rouge.run.current;
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = targeting.kind === "wedge"
+      ? (targeting.cluster ? "Click a wedge to renumber it and both neighbours to 20" : "Click a wedge to renumber it to 20")
+      : "Click a bed to widen (+20% accuracy when aimed)";
+    const wrap = $("chooser-board");
+    wrap.innerHTML = "";
+    for (let pos = 0; pos < 20; pos++) {
+      const row = document.createElement("div");
+      row.className = "wedge-row";
+      const wn = document.createElement("span");
+      wn.className = "wn" + (run.wedges[pos] === 20 ? " twenty" : "") + (targeting.kind === "wedge" ? " pick" : "");
+      wn.textContent = run.wedges[pos];
+      if (targeting.kind === "wedge") wn.addEventListener("click", () => applyTarget({ pos }));
+      row.appendChild(wn);
+      RINGS.forEach(ring => {
+        const rb = document.createElement("span");
+        const wide = (run.wide[numBedKey(pos, ring)] ?? 0) > 0;
+        rb.className = "rb" + (wide ? " wide" : "") + (targeting.kind === "bed" ? " pick" : "");
+        rb.textContent = RING_NAME[ring] + run.wedges[pos];
+        if (targeting.kind === "bed") rb.addEventListener("click", () => applyTarget({ kind: "num", pos, ring }));
+        row.appendChild(rb);
+      });
+      wrap.appendChild(row);
+    }
+    if (targeting.kind === "bed") {
+      const brow = document.createElement("div");
+      brow.className = "bull-row";
+      [["outer", "25"], ["eye", "BULL"]].forEach(([bull, label]) => {
+        const rb = document.createElement("span");
+        const wide = (run.wide["b" + bull] ?? 0) > 0;
+        rb.className = "rb pick" + (wide ? " wide" : "");
+        rb.textContent = label;
+        rb.addEventListener("click", () => applyTarget({ kind: "bull", bull }));
+        brow.appendChild(rb);
+      });
+      wrap.appendChild(brow);
+    }
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+  }
+
+  function applyTarget(t) {
+    const run = Rouge.run.current;
+    if (targeting.kind === "bed") {
+      const key = t.kind === "bull" ? "b" + t.bull : numBedKey(t.pos, t.ring);
+      run.wide[key] = (run.wide[key] ?? 0) + 1;
+    } else { // wedge renumber
+      run.wedges[t.pos] = 20;
+      if (targeting.cluster) { run.wedges[neighborPos(t.pos, -1)] = 20; run.wedges[neighborPos(t.pos, 1)] = 20; }
+    }
+    targeting.applied++; targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderBoardModal();
+  }
+
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-board").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the board is redrawn");
+    else renderOmens();
+    if (Rouge.router.current === "table") buildBoard();
+    renderAccuracy();
+    syncControls();
+  }
+
+  function openChooser(idx) {
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-board").classList.remove("show");
+    const opts = $("chooser-options");
+    opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => {
+        bumpLevel(run, e.key, 2);
+        $("chooser").classList.remove("show");
+        consumeOmen(chooserOmenIdx, `${e.name} leveled up`);
+        chooserOmenIdx = null;
+      });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+
+  /* ---------------- shop ---------------- */
+  /* ---------------- rendering — darts / accuracy / rail ---------------- */
+  function renderDarts() {
+    const wrap = $("dd-darts");
+    if (!wrap || !blind) return;
+    wrap.innerHTML = "";
+    const run = Rouge.run.current;
+    for (let i = 0; i < blind.dartsPerVisit; i++) {
+      const slot = document.createElement("div");
+      const committed = visit && i < visit.darts.length ? visit.darts[i] : null;
+      const isPending = visit && i === visit.darts.length && pending;
+      const bed = committed || (isPending ? pending.landed : null);
+      if (!bed) { slot.className = "dart-slot empty"; slot.innerHTML = `<div class="bed-val">&mdash;</div>`; }
+      else {
+        const v = bedValue(run, bed, bossId());
+        slot.className = "dart-slot" + (isPending ? " pending" : "") + (v === 0 ? " miss" : "");
+        slot.innerHTML = `<div class="bed-label">${bedLabel(run, bed)}</div><div class="bed-val">${v}</div>` +
+          (bed.drifted ? `<div class="drift-tag">drift</div>` : "");
+      }
+      wrap.appendChild(slot);
+    }
+  }
+  function renderAccuracy() {
+    const el = $("acc-val");
+    if (el && Rouge.run.current) el.textContent = `${Math.round(displayAccuracy() * 100)}%`;
+  }
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-visits").textContent = `${blind.visitsLeft} / ${blind.visitsTotal}`;
+    $("rail-rethrows").textContent = `${blind.rethrowsLeft} / ${blind.rethrowsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ") : "—";
+  }
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won;
+    $("btn-keep").hidden = lock || !pending;
+    $("btn-rethrow").hidden = lock || !pending || blind.rethrowsLeft === 0;
+    $("btn-rethrow").textContent = `Re-throw (${blind ? blind.rethrowsLeft : 0})`;
+    $("visit-chip").textContent = blind ? `VISIT ${Math.min(blind.visitsTotal, blind.visitsTotal - blind.visitsLeft + 1)} / ${blind.visitsTotal} · DART ${visit ? Math.min(blind.dartsPerVisit, visit.darts.length + 1) : 1}/${blind.dartsPerVisit}` : "—";
+  }
+
+  /* ---------------- BD.simulate — headless balance harness ----------------
+     EV bot: aims the highest-expected-value bed for its current accuracy +
+     board edits, throws all darts there, re-throws any landing below 70% of
+     the aim's hit value while charges remain. Shop: buys affordable (additive
+     charms left of ×mult); omens edit the board (Calibrate +acc, The Reamer
+     widens the go-to triple, Engraver/Cartograph build a 20-cluster), markers
+     level, Steady Tonic held for +1 visit. Logs hit rate, visit totals, event
+     frequency. Touches neither the DOM nor the live run; restores RNG state. */
+  const hitValue = (run, aim, boss) => bedValue(run, aim.kind === "bull" ? { kind: "bull", bull: aim.bull, drifted: false }
+                                                                          : { kind: "num", pos: aim.pos, ring: aim.ring, drifted: false }, boss);
+  function evOfAim(run, aim, boss) {
+    const acc = aimAccuracy(run, aim, boss);
+    const vHit = hitValue(run, aim, boss);
+    let drift = 0;
+    if (boss !== "crookedwire") {
+      if (aim.kind === "bull") {
+        const other = bedValue(run, { kind: "bull", bull: aim.bull === "eye" ? "outer" : "eye", drifted: true }, boss);
+        drift = 0.5 * other + 0.5 * 10.5; // a random single ≈ mean wedge value
+      } else {
+        const m = RING_MULT[aim.ring];
+        const wedgeDriftVal = 0.5 * (run.wedges[neighborPos(aim.pos, -1)] + run.wedges[neighborPos(aim.pos, 1)]) * m; // adjacent wedge, same ring
+        const ringDriftVal = aim.ring === "s" ? run.wedges[aim.pos] * 2.5 : run.wedges[aim.pos] * 1;
+        drift = 0.5 * wedgeDriftVal + 0.5 * ringDriftVal;
+      }
+    }
+    return acc * vHit + (1 - acc) * drift;
+  }
+  function bestAimFor(run, boss) {
+    let best = { kind: "num", pos: 0, ring: "t" }, bestEv = -1;
+    for (let pos = 0; pos < 20; pos++) for (const ring of RINGS) {
+      const aim = { kind: "num", pos, ring };
+      const ev = evOfAim(run, aim, boss);
+      if (ev > bestEv) { bestEv = ev; best = aim; }
+    }
+    for (const bull of ["outer", "eye"]) {
+      const aim = { kind: "bull", bull };
+      const ev = evOfAim(run, aim, boss);
+      if (ev > bestEv) { bestEv = ev; best = aim; }
+    }
+    return best;
+  }
+  const topWedgePos = run => { let p = 0; for (let i = 1; i < 20; i++) if (run.wedges[i] > run.wedges[p]) p = i; return p; };
+
+  function botPlayBlind(run, blindState, boss, log) {
+    const aim = bestAimFor(run, boss);
+    const target = 0.7 * hitValue(run, aim, boss);
+    while (blindState.visitsLeft > 0 && !blindState.won) {
+      if (boss === "entryfee") run.money = Math.max(0, run.money - 1);
+      const darts = [];
+      for (let d = 0; d < blindState.dartsPerVisit; d++) {
+        let landed = resolveThrow(run, aim, boss, d === 0);
+        log.darts++; if (!landed.drifted) log.hits++;
+        while (bedValue(run, landed, boss) < target && blindState.rethrowsLeft > 0) {
+          blindState.rethrowsLeft--; run.stats.rethrows++;
+          landed = resolveThrow(run, aim, boss, d === 0);
+        }
+        darts.push(landed);
+      }
+      const res = scoreVisit(run, blindState, boss, darts);
+      log.visitTotals.push(res.facts.total);
+      if (res.scoredKey) log.events[res.scoredKey] = (log.events[res.scoredKey] ?? 0) + 1;
+      blindState.score += res.gain;
+      blindState.visitsLeft--;
+      if (res.gain > run.stats.best) run.stats.best = res.gain;
+      if (blindState.score >= blindState.target) blindState.won = true;
+    }
+  }
+
+  function simOneRun(seed, log) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null], stats: { visits: 0, darts: 0, bestVisit: 0, best: 0, beaten: 0, skips: 0, rethrows: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {}, wedges: freshWedges(), wide: {}, accBonus: 0, boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (c, m) => { if (!c) bugs.push(`${seed}: ${m}`); };
+    let tonicHeld = 0;
+
+    const useShopOmens = () => {
+      const tp = topWedgePos(run);
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.open ?? 0) >= 4 ? "ton" : "open", 2);
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "marksman") { bumpLevel(run, "bed", 2); bumpLevel(run, "oneeighty", 1); }
+        else if (id === "calibrate") run.accBonus = +(Math.min(0.4, run.accBonus + 0.08)).toFixed(2);
+        else if (id === "reamer") { const k = numBedKey(tp, "t"); run.wide[k] = (run.wide[k] ?? 0) + 1; }
+        else if (id === "engraver") run.wedges[neighborPos(tp, 1)] = 20;
+        else if (id === "cartograph") { run.wedges[tp] = 20; run.wedges[neighborPos(tp, -1)] = 20; run.wedges[neighborPos(tp, 1)] = 20; }
+        else continue; // tonic held
+        run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") { if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) { run.money -= CHARMS[entry.id].cost; run.charms.push(newCharm(entry.id)); } }
+        else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) { run.money -= OMENS[entry.id].cost; run.consumables.push(entry.id); }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useShopOmens();
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let visits = VISITS_PER_BLIND + charmFlag(run, "extraVisits") + tonicHeld;
+        tonicHeld = 0;
+        const dpv = boss === "shortvisit" ? 2 : DARTS_PER_VISIT;
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0, visitsTotal: visits, visitsLeft: visits,
+          rethrowsTotal: RETHROWS_PER_BLIND, rethrowsLeft: RETHROWS_PER_BLIND, dartsPerVisit: dpv,
+          won: false, rewardMult: 1, usedTags: [], scored: new Set(), banned: null };
+        if (boss === "pitboss") { let best = LADDER[0]; for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e; blindState.banned = best.key; }
+        botPlayBlind(run, blindState, boss, log);
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won, money: run.money, boss: boss ?? undefined });
+        assert(Number.isFinite(blindState.score) && blindState.score >= 0, `bad score A${ante}/${bi}`);
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        shop();
+      }
+    }
+    rec.result = "WIN"; rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    const log = { darts: 0, hits: 0, visitTotals: [], events: {} };
+    for (let r = 1; r <= runs; r++) {
+      try { const { rec, bugs } = simOneRun(`SIM-${r}`, log); out.runs.push(rec); out.bugs.push(...bugs); }
+      catch (err) { out.bugs.push(`SIM-${r} crashed: ${err.message}`); }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++; if (b.won) k.won++; k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) { k.ratios.sort((a, b) => a - b); k.median = k.ratios[Math.floor(k.ratios.length / 2)]; k.pass = +(k.won / k.n).toFixed(2); delete k.ratios; }
+    const vt = log.visitTotals;
+    agg.hitRate = +(log.hits / Math.max(1, log.darts)).toFixed(3);
+    agg.avgVisitTotal = +(vt.reduce((a, b) => a + b, 0) / Math.max(1, vt.length)).toFixed(1);
+    agg.events = log.events;
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-keep").addEventListener("click", keepDart);
+    $("btn-rethrow").addEventListener("click", rethrow);
+    $("btn-newvisit").addEventListener("click", newVisit);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null; visit = null; pending = null;
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed;
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => { $("overlay").classList.remove("show"); blind = null; visit = null; pending = null; Rouge.run.start(""); });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => {
+      if (targeting) { endTargeting(targeting.applied > 0); return; }
+      $("chooser").classList.remove("show"); chooserOmenIdx = null;
+    });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") {
+        if (run) { ensureRunShape(run); if (run.shop) { run.shop = null; Rouge.run.persist(); } }
+        renderBlindSelect();
+      }
+      if (e.detail.screen === "shop" && run) { ensureRunShape(run); if (!run.shop) rollShop(); renderShop(); renderCharms(); renderOmens(); }
+    });
+  });
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "visitsLeft", playWord: "visits", ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           VISITS_PER_BLIND, RETHROWS_PER_BLIND, DARTS_PER_VISIT, BASE_ACCURACY, CLOCKFACE,
+           freshWedges, bedValue, bedLabel, displayAccuracy, aimAccuracy, bestAimFor, sellValue, omenSellValue,
+           get blind() { return blind; }, get visit() { return visit; }, get pending() { return pending; },
+           startBlind, skipBlind, aimAndThrow, keepDart, rethrow, newVisit, cashOut,
+           buyStock, sellCharm, moveCharm, rerollShop, useOmen, sellOmen, simulate };
+})();
+window.BD = BD;
+
+/* plug Darts & Deals into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:dd",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { visits: 0, darts: 0, bestVisit: 0, best: 0, beaten: 0, skips: 0, rethrows: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, wedges: null, wide: {}, accBonus: 0, boss: null })
+});
+</script>
+</body>
+</html>

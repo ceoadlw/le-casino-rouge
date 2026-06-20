@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Domino Dynasty — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .78rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .08rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+
+/* ====================================================================
+   DOMINO DYNASTY — table layer styles
+   ==================================================================== */
+.dom-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+/* domino tiles (pip-dot halves) */
+.bone { display: inline-flex; background: var(--ivory); border: 1px solid var(--gold-leaf); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.bone.vert { flex-direction: column; }
+.bone .half { width: 30px; height: 30px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 3px; gap: 1px; position: relative; }
+.bone .half + .half { border-left: 1px solid var(--crimson-velvet); }
+.bone.vert .half + .half { border-left: none; border-top: 1px solid var(--crimson-velvet); }
+.bone .pip { width: 5px; height: 5px; border-radius: 50%; background: var(--noir-velvet); align-self: center; justify-self: center; }
+.bone.big .half { width: 38px; height: 38px; }
+.bone.big .pip { width: 6px; height: 6px; }
+.bone.dead { opacity: .35; }
+.bone.loaded { box-shadow: 0 0 7px rgba(239,217,167,.85); }
+
+/* the layout line */
+.dom-line-wrap { padding: var(--space-2); }
+.dom-line { display: flex; gap: .3rem; align-items: center; overflow-x: auto; min-height: 48px; padding-bottom: .2rem; }
+.dom-line .placed { transform: scale(.78); transform-origin: center; }
+.dom-line .spinner-mark { outline: 2px solid var(--lipstick); border-radius: 4px; }
+.dom-empty-line { color: var(--smoke); font-style: italic; }
+
+/* open ends + sum */
+.dom-ends { display: flex; gap: var(--space-2); align-items: center; justify-content: center; flex-wrap: wrap; padding: var(--space-2); }
+.end-chip {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; min-width: 2.4rem; text-align: center;
+  border: 1px solid var(--gold-leaf); border-radius: var(--radius); padding: .2rem .5rem; color: var(--gold-leaf);
+  background: var(--noir-velvet); cursor: default;
+}
+.end-chip.arm { border-style: dashed; }
+.end-chip.playable { cursor: pointer; border-color: var(--champagne); color: var(--champagne); animation: targetPulse calc(1s / var(--speed)) infinite alternate; }
+@keyframes targetPulse { from { filter: brightness(1); } to { filter: brightness(1.5); } }
+.dom-sum { font-family: var(--font-display); font-weight: 900; font-size: 1.1rem; letter-spacing: .1em; }
+.dom-sum b { color: var(--champagne); font-size: 1.5rem; }
+.dom-sum.five b { color: var(--lipstick); }
+
+/* the hand */
+.dom-hand-wrap { padding: var(--space-2); }
+.dom-hand { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 42px; }
+.dom-hand .bone { cursor: pointer; transition: transform var(--dur-fast); }
+.dom-hand .bone:hover { transform: translateY(-3px); }
+.dom-hand .bone.sel { outline: 2px solid var(--champagne); transform: translateY(-4px); }
+.dom-hand .bone.illegal { opacity: .5; cursor: not-allowed; }
+
+.dom-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.dom-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 120px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.dom-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.dom-controls .yard-chip { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); margin-left: auto; }
+.dom-peek { font-style: italic; color: var(--smoke); font-size: .85rem; }
+
+/* bones-targeting modal (omens) */
+#chooser { display: none; position: fixed; inset: 0; z-index: 11; background: rgba(18,13,10,.85); align-items: center; justify-content: center; }
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 320px; max-width: 640px; max-height: 88vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+#chooser-bones { display: none; flex-wrap: wrap; gap: .4rem; justify-content: center; }
+#chooser-bones.show { display: flex; }
+#chooser-bones .bonewrap { position: relative; cursor: pointer; }
+#chooser-bones .bonewrap:hover .bone { outline: 2px solid var(--champagne); }
+#chooser-bones .bonewrap.no { cursor: not-allowed; opacity: .4; }
+
+/* overlay (run over / victory) */
+#overlay { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(18,13,10,.85); align-items: center; justify-content: center; }
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; DOMINO DYNASTY</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Domino <span style="color:var(--lipstick)">Dynasty</span></h1>
+      <p class="flavor">Build the line, hit the fives.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Placements</div><div class="value" id="rail-places">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Swaps</div><div class="value" id="rail-swaps">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="dom-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="dom-line-wrap panel">
+          <div class="bar-label">THE LINE</div>
+          <div class="dom-line" id="dom-line"></div>
+        </div>
+        <div class="dom-ends panel" id="dom-ends"></div>
+
+        <div class="dom-result panel">
+          <div>
+            <div id="result-label" class="flavor">Lead a bone to open the line.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">Each placement scores its best All-Fives event here.</li></ul></div>
+
+        <div class="dom-hand-wrap panel">
+          <div class="bar-label" id="hand-label">YOUR HAND</div>
+          <div class="dom-hand" id="dom-hand"></div>
+          <div class="dom-peek" id="dom-peek"></div>
+        </div>
+        <div class="dom-controls">
+          <button id="btn-place" hidden>Place</button>
+          <button id="btn-swap" hidden>Swap (3)</button>
+          <button id="btn-draw" hidden>Draw from Yard</button>
+          <span class="yard-chip" id="yard-chip">YARD 21</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-bones"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>domino-dynasty.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+/* ====================================================================
+   DOMINO DYNASTY — game module (spec.md §3.7, revised ladder)
+   On the shared spine (rouge-spine.js); Rouge.run.configure() at the
+   bottom plugs in the save key + initial run state.
+
+   Atomic object: the Bone — the 28 tiles of a double-six set; omens edit
+   the set (remove dead weight, weight bones toward the opening hand,
+   forge duplicates). Enhancements/seals attach to bones later (prompt 17).
+
+   Play: All-Fives (Muggins). Deal 7, 21 in the boneyard; place tiles onto
+   a shared line matching open ends; a double opens the spinner (up to four
+   arms). A placement scores when the open ends sum to a multiple of five.
+   12 placements + 3 swaps per blind; forced draws when stuck are free.
+
+   Modelling notes (stylized All-Fives): the layout is tracked as a list of
+   open-end pip values; the first double opens the spinner to four ends of
+   its pip; "turn" is read per-placement, so Chain of Five = three
+   consecutive scoring placements and Toll Road taxes every placement after
+   the blind's first.
+   ==================================================================== */
+const DOM = (() => {
+  const PLACEMENTS_PER_BLIND = 12, SWAPS_PER_BLIND = 3, HAND_SIZE = 7;
+  const INTEREST_STEP = 5, INTEREST_CAP = 5;
+  const MIN_BONES = 18, MAX_BONES = 40; // omen guards (need ≥7 to deal a hand)
+
+  function freshBones() {
+    const bones = [];
+    let id = 1;
+    for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) bones.push({ id: id++, a, b });
+    return bones; // 28
+  }
+  const pips = t => t.a + t.b;
+  const isDouble = t => t.a === t.b;
+
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +2 placements." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder ----------------
+     Weakest → strongest. Each placement scores its single best (highest
+     qualifying rung) event; the placed tile's pips add to base chips
+     before mult. The open ends summing to a multiple of five drives the
+     Nickel/Dime/Fifteen/Twenty rungs (max sum 24 → up to Twenty). */
+  const LADDER = [
+    { rung: 1,  key: "open",     name: "Open Play",      chips: 14, mult: 1, up: { c: 8,  m: 1 } },
+    { rung: 2,  key: "nickel",   name: "Nickel",         chips: 24, mult: 2, up: { c: 12, m: 1 } },
+    { rung: 3,  key: "doublet",  name: "Doublet",        chips: 30, mult: 2, up: { c: 14, m: 1 } },
+    { rung: 4,  key: "dime",     name: "Dime",           chips: 40, mult: 2, up: { c: 16, m: 2 } },
+    { rung: 5,  key: "spinner",  name: "Spinner Set",    chips: 45, mult: 3, up: { c: 18, m: 2 } },
+    { rung: 6,  key: "fifteen",  name: "Fifteen",        chips: 60, mult: 3, up: { c: 22, m: 2 } },
+    { rung: 7,  key: "twenty",   name: "Twenty",         chips: 80, mult: 4, up: { c: 28, m: 3 } },
+    { rung: 8,  key: "chain",    name: "Chain of Five",  chips: 100,mult: 5, up: { c: 34, m: 3 } },
+    { rung: 9,  key: "domino",   name: "Domino",         chips: 120,mult: 6, up: { c: 40, m: 4 } },
+    { rung: 10, key: "dynasty",  name: "The Dynasty",    chips: 160,mult: 9, up: { c: 50, m: 5 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+  const FIVE_KEYS = new Set(["nickel", "dime", "fifteen", "twenty"]);
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes. onEvent mutates the placement's
+     ctx.chips / ctx.mult in STRICT bar order; ctx.p carries placement
+     facts (sum, pips, isDouble, spinnerOpen, allEndsEven, handEmpty,
+     endsCount). Counter hooks (onPlaceEnd) fire once after, from facts. */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat
+    heavyweight: { name: "The Heavyweight", type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+30 Chips on every Doublet",
+      onEvent: (i, c) => { if (c.p.isDouble) c.chips += 30; } },
+    inlay:    { name: "Ivory Inlay",     type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+25 Chips on Spinner Set and Chain of Five",
+      onEvent: (i, c) => { if (c.event.key === "spinner" || c.event.key === "chain") c.chips += 25; } },
+    pipcount: { name: "Pip Counter",     type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+6 Chips per open end on the board",
+      onEvent: (i, c) => { c.chips += 6 * c.p.endsCount; } },
+    // scaling
+    dynastyb: { name: "Dynasty Builder", type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every placement (+1 per Domino gone out this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onPlaceEnd: (i, e) => { if (e.facts.handEmpty) i.state.m += 1; } },
+    tally:    { name: "The Tally",       type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ c: 0 }),
+      desc: s => `+${s.c} Chips on every placement (+2 per placement made this run)`,
+      onEvent: (i, c) => { c.chips += i.state.c; },
+      onPlaceEnd: i => { i.state.c += 2; } },
+    fivestar: { name: "Five Star",       type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every placement (+1 per Twenty scored this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onPlaceEnd: (i, e) => { if (e.facts.sum === 20) i.state.m += 1; } },
+    // conditional
+    evenhouse:{ name: "Even House",      type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×3 Mult while every open end is even",
+      onEvent: (i, c) => { if (c.p.allEndsEven) c.mult *= 3; } },
+    spinmstr: { name: "Spinner Master",  type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+5 Mult on every placement while the spinner is open",
+      onEvent: (i, c) => { if (c.p.spinnerOpen) c.mult += 5; } },
+    bigbones: { name: "Big Bones",       type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+25 Chips when the placed tile is worth 10+ pips",
+      onEvent: (i, c) => { if (c.p.pips >= 10) c.chips += 25; } },
+    doublesd: { name: "Doubles Down",    type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "×2 Mult on Doublet and Spinner Set events",
+      onEvent: (i, c) => { if (c.event.key === "doublet" || c.event.key === "spinner") c.mult *= 2; } },
+    // economy
+    counter:  { name: "The Counter",     type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $1 whenever the open ends make a multiple of five",
+      onPlaceEnd: (i, e) => { if (e.facts.sum > 0 && e.facts.sum % 5 === 0) { e.run.money += 1; e.moneyGained.n += 1; } } },
+    landlord: { name: "The Landlord",    type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["The Landlord", 3] },
+    cvault:   { name: "Velvet Counting House", type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    banker:   { name: "The Banker",      type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    // ×mult
+    spread:   { name: "The Spread",      type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×4 Mult on any Twenty",
+      onEvent: (i, c) => { if (c.p.sum === 20) c.mult *= 4; } },
+    crimson:  { name: "Crimson Bones",   type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every placement",
+      onEvent: (i, c) => { c.mult *= 1.5; } },
+    muggins:  { name: "The Muggins",     type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult on placements scoring Fifteen or better",
+      onEvent: (i, c) => { if (c.event.rung >= 6) c.mult *= 3; } },
+    // utility
+    peeker:   { name: "The Peeker",      type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "Reveal the top tile of the boneyard before drawing",
+      peek: true },
+    sparebone:{ name: "Spare Bone",      type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Swap each blind",
+      extraSwaps: 1 },
+    longgame: { name: "The Long Game",   type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+3 placements each blind",
+      extraPlacements: 3 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2);
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] === true ? 0 : (CHARMS[inst.id][flag] ?? 0)), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     Bone-editing is the deck manipulation: The Whittler / La Grande Rafle
+     pull bones from the set (thin dead weight), The Loaded Bone weights a
+     bone toward the opening hand, The Forger forges a duplicate (illegal
+     in dominoes, delightful here). use kinds: instant / chooser / target
+     (a bones modal). */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    whittler: { name: "The Whittler",    tier: 1, cost: 4, use: "target", target: { kind: "remove", count: 1 },
+      desc: "Pull a chosen bone out of the set forever (thin the dead weight)" },
+    housemarker: { name: "House Marker", tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    loadedbone: { name: "The Loaded Bone", tier: 2, cost: 6, use: "target", target: { kind: "load", count: 1 },
+      desc: "Weight a chosen bone — far likelier in your opening hand" },
+    forger:   { name: "The Forger",      tier: 2, cost: 7, use: "target", target: { kind: "forge", count: 1 },
+      desc: "Forge an exact duplicate of a chosen bone into the set" },
+    tempo:    { name: "Idle Hand",       tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+2 placements this blind",
+      apply: () => { blind.placesTotal += 2; blind.placesLeft += 2; return "+2 placements"; } },
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    rafle:    { name: "La Grande Rafle", tier: 3, cost: 9, use: "target", target: { kind: "remove", count: 3 },
+      desc: "Pull three chosen bones out of the set forever" },
+    founder:  { name: "The Founder's Stone", tier: 3, cost: 9, use: "instant",
+      desc: "The Dynasty levels up twice and Twenty once",
+      apply: run => { bumpLevel(run, "dynasty", 2); bumpLevel(run, "twenty", 1); return "the dynasty rises"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warps (spec §2.4) ---------------- */
+  const BOSSES = {
+    blankwall:  { name: "The Blank Wall",
+      desc: "A tile containing a blank scores no pip chips" },
+    heavyhand:  { name: "The Heavy Hand",
+      desc: "Doubles don't open the spinner — no extra arms" },
+    sealedyard: { name: "The Sealed Yard",
+      desc: "No swaps this blind" },
+    countinghouse: { name: "The Counting House", minAnte: 2,
+      desc: "Going Domino scores nothing — only the fives score" },
+    tollroad:   { name: "The Toll Road",
+      desc: "Each placement after the first costs $1" },
+    pitboss:    { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" },
+    shortcount: { name: "The Short Count", minAnte: 2,
+      desc: "Three fewer placements this blind" },
+    doublersbane: { name: "The Doubler's Bane", minAnte: 2,
+      desc: "Doublet events score nothing" },
+    eye:        { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No scoring event may be scored twice this blind" },
+    houseedge:  { name: "The House Edge", minAnte: 3,
+      desc: "Every event's base Mult is halved (minimum 1)" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ---------------- state ---------------- */
+  let blind = null;     // {idx, target, score, placesTotal/Left, swapsTotal/Left, streak, scored, banned, ...}
+  let hand = null;      // [{id,a,b}]
+  let yard = null;      // [{id,a,b}] boneyard (drawn from the front)
+  let layout = null;    // {ends:[int], spinner, placed:[{a,b,spinner}], firstDone}
+  let selIdx = -1;      // selected hand tile (UI)
+  let lastSeed = "";
+  let targeting = null;
+  let chooserOmenIdx = null;
+
+  /* ---------------- layout engine — shared by live table and the sim ---------------- */
+  function freshLayout() { return { ends: [], spinner: false, placed: [], firstDone: false }; }
+
+  function legalEndsFor(tile, lay) { // → array of end indices, or 'first', or []
+    if (!lay.firstDone) return "first";
+    const ix = [];
+    lay.ends.forEach((v, i) => { if (v === tile.a || v === tile.b) ix.push(i); });
+    return ix;
+  }
+  const handHasLegal = (h, lay) => !lay.firstDone || h.some(t => legalEndsFor(t, lay).length > 0);
+
+  function applyPlace(lay, tile, endIdx, boss) {
+    const dbl = tile.a === tile.b;
+    let spinnerSetNow = false;
+    if (!lay.firstDone) {
+      lay.firstDone = true;
+      if (dbl) {
+        lay.spinner = true; spinnerSetNow = true;
+        lay.ends = boss === "heavyhand" ? [tile.a] : [tile.a, tile.a, tile.a, tile.a];
+      } else lay.ends = [tile.a, tile.b];
+    } else {
+      const m = lay.ends[endIdx];
+      const o = m === tile.a ? tile.b : tile.a;
+      lay.ends.splice(endIdx, 1);
+      if (dbl) {
+        if (!lay.spinner) {
+          lay.spinner = true; spinnerSetNow = true;
+          if (boss === "heavyhand") lay.ends.push(tile.a);
+          else { const pushes = Math.max(1, 4 - lay.ends.length); for (let k = 0; k < pushes; k++) lay.ends.push(tile.a); }
+        } else lay.ends.push(tile.a); // a later double simply continues the line
+      } else lay.ends.push(o);
+    }
+    lay.placed.push({ a: tile.a, b: tile.b, spinner: spinnerSetNow });
+    return { spinnerSetNow };
+  }
+
+  function eventBase(e, run, boss) {
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    let chips = e.chips + lvl * e.up.c;
+    let mult = e.mult + lvl * e.up.m;
+    if (boss === "houseedge") mult = Math.max(1, Math.ceil(mult / 2));
+    return { chips, mult };
+  }
+
+  /* score one placement (after applyPlace has updated the layout) — headless */
+  function scorePlacement(run, blindState, boss, lay, tile, spinnerSetNow, handEmpty) {
+    const sum = lay.ends.reduce((a, b) => a + b, 0);
+    const dbl = tile.a === tile.b;
+    const madeFive = sum > 0 && sum % 5 === 0;
+    blindState.streak = madeFive ? (blindState.streak ?? 0) + 1 : 0;
+    const chain = madeFive && blindState.streak % 3 === 0;
+    const facts = { sum, pips: pips(tile), isDouble: dbl, spinnerOpen: lay.spinner,
+      allEndsEven: lay.ends.length > 0 && lay.ends.every(v => v % 2 === 0),
+      handEmpty, endsCount: lay.ends.length };
+    const noGoOut = boss === "countinghouse";
+    const keys = [];
+    if (handEmpty && sum === 20 && !noGoOut) keys.push("dynasty");
+    if (handEmpty && !noGoOut) keys.push("domino");
+    if (chain) keys.push("chain");
+    if (sum === 20) keys.push("twenty");
+    if (sum === 15) keys.push("fifteen");
+    if (spinnerSetNow) keys.push("spinner");
+    if (sum === 10) keys.push("dime");
+    if (dbl && boss !== "doublersbane") keys.push("doublet");
+    if (sum === 5) keys.push("nickel");
+    keys.push("open");
+    let cand = keys.sort((a, b) => RUNG[b].rung - RUNG[a].rung);
+    if (boss === "pitboss") cand = cand.filter(k => k !== blindState.banned);
+    if (boss === "eye") cand = cand.filter(k => !blindState.scored.has(k));
+    let gain = 0, scoredKey = null, detail = null;
+    if (cand.length) {
+      const e = RUNG[cand[0]];
+      const base = eventBase(e, run, boss);
+      let pipChips = pips(tile);
+      if (boss === "blankwall" && (tile.a === 0 || tile.b === 0)) pipChips = 0;
+      const ctx = { event: e, p: facts, chips: base.chips + pipChips, mult: base.mult, run };
+      for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx); // strict left-to-right
+      gain = Math.floor(ctx.chips * ctx.mult);
+      scoredKey = e.key;
+      detail = { name: e.name, chips: ctx.chips, mult: ctx.mult, score: gain };
+      if (boss === "eye") blindState.scored.add(e.key);
+    }
+    const moneyGained = { n: 0 };
+    for (const inst of run.charms) CHARMS[inst.id].onPlaceEnd?.(inst, { facts, scoredKey, run, moneyGained });
+    run.stats.placements++;
+    run.stats.pipsPlaced += pips(tile);
+    if (handEmpty) run.stats.goOuts++;
+    return { gain, scoredKey, detail, facts, moneyGained: moneyGained.n };
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+
+  /* ---------------- deal ---------------- */
+  function dealHandYard(run) {
+    const loaded = run.bones.filter(b => run.loaded.includes(b.id));
+    const rest = run.bones.filter(b => !run.loaded.includes(b.id));
+    const order = Rouge.rng.shuffle(loaded.slice()).concat(Rouge.rng.shuffle(rest.slice()));
+    const copy = t => ({ id: t.id, a: t.a, b: t.b });
+    return { hand: order.slice(0, HAND_SIZE).map(copy), yard: order.slice(HAND_SIZE).map(copy) };
+  }
+
+  /* ---------------- blind flow ---------------- */
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { placements: 0, pipsPlaced: 0, goOuts: 0, best: 0, beaten: 0, skips: 0, swaps: 0 };
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.bones) run.bones = freshBones();
+    run.loaded ??= [];
+    run.nextBoneId ??= 100;
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0);
+    const usedTags = [];
+    let places = PLACEMENTS_PER_BLIND + charmFlag(run, "extraPlacements");
+    let swaps = SWAPS_PER_BLIND + charmFlag(run, "extraSwaps");
+    let rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { places += 2; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    const boss = idx === 2 ? run.boss : null;
+    if (boss === "shortcount") places = Math.max(1, places - 3);
+    if (boss === "sealedyard") swaps = 0;
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              placesTotal: places, placesLeft: places, swapsTotal: swaps, swapsLeft: swaps,
+              won: false, rewardMult, usedTags, streak: 0, scored: new Set(), banned: null, tollFirst: true };
+    if (boss === "pitboss") {
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    const bb = $("boss-banner");
+    if (boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[boss].name}</b> &mdash; ${BOSSES[boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    const dealt = dealHandYard(run);
+    hand = dealt.hand; yard = dealt.yard;
+    layout = freshLayout();
+    selIdx = -1;
+    $("breakdown-list").innerHTML = '<li class="flavor">Each placement scores its best All-Fives event here.</li>';
+    $("result-label").textContent = "Lead a bone to open the line.";
+    $("result-gain").textContent = "";
+    $("win-banner").classList.remove("show");
+    $("win-banner").innerHTML = "";
+    renderAll();
+    Rouge.router.go("table");
+  }
+
+  function renderAll() {
+    renderLine(); renderEnds(); renderHand(); renderCharms(); renderOmens();
+    renderLadder(); renderRail(); renderPeek(); syncControls();
+  }
+
+  /* ---------------- the Lay — live flow ---------------- */
+  function selectTile(idx) {
+    if (!blind || blind.won || targeting) return;
+    selIdx = selIdx === idx ? -1 : idx;
+    renderHand(); renderEnds(); syncControls();
+  }
+
+  function placeFirst() { // open the line with the selected tile
+    if (selIdx < 0 || layout.firstDone) return;
+    commitPlacement(selIdx, null);
+  }
+  function placeAtEnd(endIdx) {
+    if (selIdx < 0) return;
+    const tile = hand[selIdx];
+    if (!legalEndsFor(tile, layout).includes(endIdx)) return;
+    commitPlacement(selIdx, endIdx);
+  }
+
+  function commitPlacement(tileIdx, endIdx) {
+    const run = Rouge.run.current, boss = bossId();
+    const tile = hand.splice(tileIdx, 1)[0];
+    if (boss === "tollroad") { if (!blind.tollFirst) run.money = Math.max(0, run.money - 1); blind.tollFirst = false; }
+    const { spinnerSetNow } = applyPlace(layout, tile, endIdx, boss);
+    const handEmpty = hand.length === 0;
+    const res = scorePlacement(run, blind, boss, layout, tile, spinnerSetNow, handEmpty);
+    blind.score += res.gain;
+    blind.placesLeft--;
+    if (res.gain > run.stats.best) run.stats.best = res.gain;
+    Rouge.audio.play(res.facts.sum % 5 === 0 && res.facts.sum > 0 ? "point" : "chip");
+    selIdx = -1;
+    Rouge.run.persist();
+
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    $("result-label").textContent = res.detail
+      ? `${tileLabel(tile)} — ends sum ${res.facts.sum}${res.facts.sum % 5 === 0 && res.facts.sum > 0 ? " ✦" : ""} — ${res.detail.name}.`
+      : "Placed.";
+    $("result-gain").textContent = res.gain > 0
+      ? `+${fmt(res.gain)}${res.moneyGained ? ` · +$${res.moneyGained}` : ""}`
+      : (res.moneyGained ? `+$${res.moneyGained}` : "");
+    $("breakdown-list").innerHTML = res.detail
+      ? `<li><span class="ev">${res.detail.name}</span><span class="math"><span class="c">${fmt(res.detail.chips)}</span> × <span class="m">${fmtMult(res.detail.mult)}</span> = <b>${fmt(res.detail.score)}</b></span></li>`
+      : '<li class="flavor">No event scored.</li>';
+
+    afterPlacement(handEmpty);
+  }
+
+  function afterPlacement(wentOut) {
+    const run = Rouge.run.current;
+    renderLine(); renderEnds(); renderCharms(); renderRail();
+    if (blind.score >= blind.target && !blind.won) { winBlind(); renderHand(); syncControls(); Rouge.run.persist(); return; }
+    if (blind.placesLeft === 0) { syncControls(); Rouge.run.persist(); loseRun(); return; }
+    if (wentOut) hand = yard.splice(0, HAND_SIZE); // go-out: refill from the yard, the line persists
+    // forced free draws until a legal tile exists (or the yard empties)
+    let drew = 0;
+    while (layout.firstDone && !handHasLegal(hand, layout) && yard.length > 0) { hand.push(yard.shift()); drew++; }
+    if (drew > 0) $("result-label").textContent += `  (drew ${drew} from the yard)`;
+    if (layout.firstDone && !handHasLegal(hand, layout) && yard.length === 0) { // blocked
+      $("result-label").textContent = "Blocked — no legal tile and the yard is empty.";
+      renderHand(); syncControls(); Rouge.run.persist(); loseRun(); return;
+    }
+    renderHand(); renderEnds(); renderPeek(); syncControls();
+    Rouge.run.persist();
+  }
+
+  function swapSelected() {
+    if (selIdx < 0 || !blind || blind.won || blind.swapsLeft === 0 || bossId() === "sealedyard") return;
+    const run = Rouge.run.current;
+    const t = hand.splice(selIdx, 1)[0];
+    yard.push(t);                       // returned to the back of the yard
+    if (yard.length > 0) hand.push(yard.shift()); // replacement drawn from the front
+    blind.swapsLeft--;
+    run.stats.swaps++;
+    selIdx = -1;
+    Rouge.audio.play("chip");
+    Rouge.run.persist();
+    renderHand(); renderEnds(); renderRail(); renderPeek(); syncControls();
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Domino Dynasty lays its last bone."
+      : `The line ran cold — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed], ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`], ["Blinds beaten", run.stats.beaten], ["Blinds skipped", run.stats.skips],
+      ["Placements", run.stats.placements], ["Pips placed", run.stats.pipsPlaced],
+      ["Times gone out", run.stats.goOuts], ["Swaps used", run.stats.swaps], ["Best placement", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- tile rendering (pip dots) ---------------- */
+  const DOT_POS = { 0: [], 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
+  const tileLabel = t => `${t.a}-${t.b}`;
+  function halfEl(n) {
+    const h = document.createElement("div"); h.className = "half";
+    const set = new Set(DOT_POS[n]);
+    for (let p = 1; p <= 9; p++) {
+      const cell = document.createElement("div");
+      if (set.has(p)) { const d = document.createElement("div"); d.className = "pip"; cell.appendChild(d); }
+      h.appendChild(cell);
+    }
+    return h;
+  }
+  function boneEl(tile, cls = "") {
+    const el = document.createElement("div");
+    el.className = "bone" + (tile.a === tile.b ? " vert" : "") + (cls ? " " + cls : "");
+    el.appendChild(halfEl(tile.a)); el.appendChild(halfEl(tile.b));
+    return el;
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens edit the bone set via a modal: The Whittler / Rafle
+     pull bones, The Loaded Bone weights one to the opening hand, The
+     Forger duplicates one. Between placements. */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    if (o.use === "target") return onTable && !!blind && !blind.won;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && blind.placesLeft > 0;
+    return true;
+  }
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") consumeOmen(idx, o.apply(run));
+    else if (o.use === "chooser") openChooser(idx);
+    else { targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0, name: o.name }; openBonesModal(); }
+  }
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens(); renderLadder(); renderRail();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+  const omenEligible = (kind, run) => kind === "remove" ? run.bones.length > MIN_BONES : kind === "forge" ? run.bones.length < MAX_BONES : true;
+  function openBonesModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    $("chooser-bones").classList.add("show");
+    renderBonesModal();
+    $("chooser").classList.add("show");
+  }
+  function renderBonesModal() {
+    const run = Rouge.run.current;
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = targeting.kind === "remove" ? `Click ${targeting.left} bone to pull from the set (set keeps ${MIN_BONES})`
+      : targeting.kind === "load" ? `Click ${targeting.left} bone to weight toward your opening hand`
+      : `Click ${targeting.left} bone to forge a duplicate`;
+    const wrap = $("chooser-bones");
+    wrap.innerHTML = "";
+    run.bones.slice().sort((a, b) => a.a - b.a || a.b - b.b).forEach(t => {
+      const bw = document.createElement("div");
+      const elig = (targeting.kind !== "load" || !run.loaded.includes(t.id)) && omenEligible(targeting.kind, run);
+      bw.className = "bonewrap" + (elig ? "" : " no");
+      bw.appendChild(boneEl(t, run.loaded.includes(t.id) ? "loaded" : ""));
+      if (elig) bw.addEventListener("click", () => applyTarget(t.id));
+      wrap.appendChild(bw);
+    });
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+  }
+  function applyTarget(boneId) {
+    const run = Rouge.run.current;
+    if (targeting.kind === "remove") {
+      const i = run.bones.findIndex(b => b.id === boneId);
+      if (i >= 0) run.bones.splice(i, 1);
+      run.loaded = run.loaded.filter(x => x !== boneId);
+    } else if (targeting.kind === "load") {
+      if (!run.loaded.includes(boneId)) run.loaded.push(boneId);
+    } else { // forge a duplicate
+      const t = run.bones.find(b => b.id === boneId);
+      if (t && run.bones.length < MAX_BONES) run.bones.push({ id: run.nextBoneId++, a: t.a, b: t.b });
+    }
+    targeting.applied++; targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderBonesModal();
+  }
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-bones").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the set is re-cut");
+    else renderOmens();
+    syncControls();
+  }
+  function openChooser(idx) {
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-bones").classList.remove("show");
+    const opts = $("chooser-options");
+    opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => { bumpLevel(run, e.key, 2); $("chooser").classList.remove("show"); consumeOmen(chooserOmenIdx, `${e.name} leveled up`); chooserOmenIdx = null; });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+  /* ---------------- shop ---------------- */
+  /* ---------------- rendering — line / ends / hand ---------------- */
+  function renderLine() {
+    const el = $("dom-line");
+    if (!el) return;
+    el.innerHTML = "";
+    if (!layout || layout.placed.length === 0) { el.innerHTML = '<span class="dom-empty-line">The line is empty — lead a bone.</span>'; return; }
+    layout.placed.forEach(t => el.appendChild(boneEl(t, "placed" + (t.spinner ? " spinner-mark" : ""))));
+  }
+  function renderEnds() {
+    const el = $("dom-ends");
+    if (!el || !blind) return;
+    el.innerHTML = "";
+    if (!layout.firstDone) { el.innerHTML = '<span class="flavor">No open ends yet — lead any bone to start.</span>'; return; }
+    const sel = selIdx >= 0 ? hand[selIdx] : null;
+    const legal = sel ? legalEndsFor(sel, layout) : [];
+    layout.ends.forEach((v, i) => {
+      const chip = document.createElement("div");
+      const playable = sel && Array.isArray(legal) && legal.includes(i);
+      chip.className = "end-chip" + (playable ? " playable" : "");
+      chip.textContent = v;
+      if (playable) chip.addEventListener("click", () => placeAtEnd(i));
+      el.appendChild(chip);
+    });
+    const sum = layout.ends.reduce((a, b) => a + b, 0);
+    const isFive = sum > 0 && sum % 5 === 0;
+    const sumEl = document.createElement("div");
+    sumEl.className = "dom-sum" + (isFive ? " five" : "");
+    sumEl.innerHTML = `SUM <b>${sum}</b>${isFive ? " ✦" : ""}`;
+    el.appendChild(sumEl);
+  }
+  function renderHand() {
+    const el = $("dom-hand");
+    if (!el || !blind) return;
+    el.innerHTML = "";
+    (hand || []).forEach((t, i) => {
+      const legal = !layout.firstDone || legalEndsFor(t, layout).length > 0;
+      const bw = boneEl(t, "big" + (i === selIdx ? " sel" : "") + (legal ? "" : " illegal"));
+      bw.addEventListener("click", () => selectTile(i));
+      el.appendChild(bw);
+    });
+    $("hand-label").textContent = `YOUR HAND (${(hand || []).length})`;
+  }
+  function renderPeek() {
+    const el = $("dom-peek");
+    if (!el) return;
+    if (anyCharmFlag(Rouge.run.current, "peek") && yard && yard.length) el.textContent = `Top of the yard: ${tileLabel(yard[0])}`;
+    else el.textContent = "";
+  }
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-places").textContent = `${blind.placesLeft} / ${blind.placesTotal}`;
+    $("rail-swaps").textContent = `${blind.swapsLeft} / ${blind.swapsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ") : "—";
+  }
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won;
+    $("btn-place").hidden = lock || selIdx < 0 || (layout && layout.firstDone);
+    $("btn-swap").hidden = lock || selIdx < 0 || blind.swapsLeft === 0 || bossId() === "sealedyard";
+    $("btn-swap").textContent = `Swap (${blind ? blind.swapsLeft : 0})`;
+    $("btn-draw").hidden = true;
+    $("yard-chip").textContent = `YARD ${yard ? yard.length : 0}`;
+  }
+
+  /* ---------------- DOM.simulate — headless balance harness ----------------
+     Greedy bot: each turn it places its highest-scoring legal tile (a quick
+     preview ranks go-outs > big fives > doublets > open, tiebreak pips);
+     swaps a dead-weight (unplayable) tile while swaps remain when the turn
+     would otherwise be a plain Open Play; draws free when stuck. Shop: buys
+     affordable (additive charms left of ×mult); omens edit the set (Whittler/
+     Rafle pull dead weight, Loaded Bone weights the 6-6, Forger duplicates
+     it), markers level, Idle Hand held for +2 placements. Logs event
+     frequency, pips placed per blind, go-out rate. Restores the RNG state. */
+  function previewLayout(lay) { return { ends: lay.ends.slice(), spinner: lay.spinner, placed: [], firstDone: lay.firstDone }; }
+  function rankOf(sum, dbl, goOut, streak, boss) {
+    if (boss !== "countinghouse" && goOut && sum === 20) return 100;
+    if (boss !== "countinghouse" && goOut) return 90;
+    if (sum > 0 && sum % 5 === 0) return 50 + sum + (streak >= 2 ? 15 : 0);
+    if (dbl && boss !== "doublersbane") return 20;
+    return 1;
+  }
+  function bestLegalPlacement(h, lay, boss, bs) {
+    let best = null, bestRank = -1, bestPips = -1;
+    h.forEach((tile, ti) => {
+      const ends = lay.firstDone ? legalEndsFor(tile, lay) : "first";
+      const tryEnds = ends === "first" ? [null] : ends;
+      tryEnds.forEach(ei => {
+        const clone = previewLayout(lay);
+        applyPlace(clone, tile, ei, boss);
+        const sum = clone.ends.reduce((a, b) => a + b, 0);
+        const r = rankOf(sum, tile.a === tile.b, h.length === 1, bs.streak ?? 0, boss);
+        const p = pips(tile);
+        if (r > bestRank || (r === bestRank && p > bestPips)) { bestRank = r; bestPips = p; best = { tileIdx: ti, endIdx: ei, rank: r }; }
+      });
+    });
+    return best;
+  }
+
+  function botPlayBlind(run, blindState, boss, log) {
+    const dealt = dealHandYard(run);
+    let h = dealt.hand, y = dealt.yard;
+    const lay = freshLayout();
+    log.blinds++;
+    let guard = 0;
+    while (blindState.placesLeft > 0 && !blindState.won && guard++ < 200) {
+      while (lay.firstDone && !handHasLegal(h, lay) && y.length > 0) h.push(y.shift()); // forced draws
+      if (lay.firstDone && !handHasLegal(h, lay) && y.length === 0) break;              // blocked
+      let choice = bestLegalPlacement(h, lay, boss, blindState);
+      if (!choice) break;
+      // swap a dead-weight (unplayable) tile if this turn is only an Open Play
+      if (choice.rank <= 1 && boss !== "sealedyard" && blindState.swapsLeft > 0 && y.length > 0) {
+        const di = h.findIndex(t => legalEndsFor(t, lay).length === 0);
+        if (di >= 0) {
+          const t = h.splice(di, 1)[0]; y.push(t); h.push(y.shift());
+          blindState.swapsLeft--; run.stats.swaps++;
+          while (lay.firstDone && !handHasLegal(h, lay) && y.length > 0) h.push(y.shift());
+          choice = bestLegalPlacement(h, lay, boss, blindState);
+          if (!choice) break;
+        }
+      }
+      const tile = h.splice(choice.tileIdx, 1)[0];
+      if (boss === "tollroad") { if (!blindState.tollFirst) run.money = Math.max(0, run.money - 1); blindState.tollFirst = false; }
+      const { spinnerSetNow } = applyPlace(lay, tile, choice.endIdx, boss);
+      const handEmpty = h.length === 0;
+      const res = scorePlacement(run, blindState, boss, lay, tile, spinnerSetNow, handEmpty);
+      blindState.score += res.gain;
+      blindState.placesLeft--;
+      if (res.gain > run.stats.best) run.stats.best = res.gain;
+      if (res.scoredKey) log.events[res.scoredKey] = (log.events[res.scoredKey] ?? 0) + 1;
+      log.pips += pips(tile); log.places++;
+      if (handEmpty) { log.goOuts++; h = y.splice(0, HAND_SIZE); }
+      if (blindState.score >= blindState.target) { blindState.won = true; break; }
+    }
+  }
+
+  function simOneRun(seed, log) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null], stats: { placements: 0, pipsPlaced: 0, goOuts: 0, best: 0, beaten: 0, skips: 0, swaps: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {}, bones: freshBones(), loaded: [], nextBoneId: 100, boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (c, m) => { if (!c) bugs.push(`${seed}: ${m}`); };
+    let tempoHeld = 0;
+    const find66 = () => { let b = run.bones.find(t => t.a === 6 && t.b === 6); return b; };
+
+    const useShopOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.open ?? 0) >= 4 ? "twenty" : "open", 2);
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "founder") { bumpLevel(run, "dynasty", 2); bumpLevel(run, "twenty", 1); }
+        else if (id === "loadedbone") { const b = find66(); if (b && !run.loaded.includes(b.id)) run.loaded.push(b.id); }
+        else if (id === "forger") { const b = find66(); if (b && run.bones.length < MAX_BONES) run.bones.push({ id: run.nextBoneId++, a: b.a, b: b.b }); }
+        else if (id === "whittler") { const lo = lowBone(run); if (lo && run.bones.length > MIN_BONES) removeBone(run, lo.id); }
+        else if (id === "rafle") { for (let k = 0; k < 3; k++) { const lo = lowBone(run); if (lo && run.bones.length > MIN_BONES) removeBone(run, lo.id); } }
+        else continue; // Idle Hand held
+        run.consumables.splice(i, 1);
+      }
+    };
+    const lowBone = run => run.bones.filter(t => !(t.a === 6 && t.b === 6)).sort((a, b) => (a.a + a.b) - (b.a + b.b) || (a.b === a.a ? 1 : 0) - (b.b === b.a ? 1 : 0))[0]; // thin low/blank dead weight first
+    const removeBone = (run, id) => { const i = run.bones.findIndex(b => b.id === id); if (i >= 0) run.bones.splice(i, 1); run.loaded = run.loaded.filter(x => x !== id); };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") { if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) { run.money -= CHARMS[entry.id].cost; run.charms.push(newCharm(entry.id)); } }
+        else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) { run.money -= OMENS[entry.id].cost; run.consumables.push(entry.id); }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useShopOmens();
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let places = PLACEMENTS_PER_BLIND + charmFlag(run, "extraPlacements") + tempoHeld;
+        tempoHeld = 0;
+        let swaps = SWAPS_PER_BLIND + charmFlag(run, "extraSwaps");
+        if (boss === "shortcount") places = Math.max(1, places - 3);
+        if (boss === "sealedyard") swaps = 0;
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0, placesTotal: places, placesLeft: places,
+          swapsTotal: swaps, swapsLeft: swaps, won: false, rewardMult: 1, usedTags: [], streak: 0, scored: new Set(), banned: null, tollFirst: true };
+        if (boss === "pitboss") { let best = LADDER[0]; for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e; blindState.banned = best.key; }
+        botPlayBlind(run, blindState, boss, log);
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won, money: run.money, boss: boss ?? undefined });
+        assert(Number.isFinite(blindState.score) && blindState.score >= 0, `bad score A${ante}/${bi}`);
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        if (run.consumables.includes("tempo")) { tempoHeld += 2 * run.consumables.filter(x => x === "tempo").length; run.consumables = run.consumables.filter(x => x !== "tempo"); }
+        shop();
+      }
+    }
+    rec.result = "WIN"; rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    const log = { events: {}, pips: 0, places: 0, goOuts: 0, blinds: 0 };
+    for (let r = 1; r <= runs; r++) {
+      try { const { rec, bugs } = simOneRun(`SIM-${r}`, log); out.runs.push(rec); out.bugs.push(...bugs); }
+      catch (err) { out.bugs.push(`SIM-${r} crashed: ${err.message}`); }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++; if (b.won) k.won++; k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) { k.ratios.sort((a, b) => a - b); k.median = k.ratios[Math.floor(k.ratios.length / 2)]; k.pass = +(k.won / k.n).toFixed(2); delete k.ratios; }
+    agg.events = log.events;
+    agg.pipsPerBlind = +(log.pips / Math.max(1, log.blinds)).toFixed(1);
+    agg.goOutRate = +(log.goOuts / Math.max(1, log.blinds)).toFixed(2);
+    agg.placesPerBlind = +(log.places / Math.max(1, log.blinds)).toFixed(1);
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-place").addEventListener("click", placeFirst);
+    $("btn-swap").addEventListener("click", swapSelected);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null; hand = null; yard = null; layout = null;
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed;
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => { $("overlay").classList.remove("show"); blind = null; hand = null; yard = null; layout = null; Rouge.run.start(""); });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => {
+      if (targeting) { endTargeting(targeting.applied > 0); return; }
+      $("chooser").classList.remove("show"); chooserOmenIdx = null;
+    });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") { if (run) { ensureRunShape(run); if (run.shop) { run.shop = null; Rouge.run.persist(); } } renderBlindSelect(); }
+      if (e.detail.screen === "shop" && run) { ensureRunShape(run); if (!run.shop) rollShop(); renderShop(); renderCharms(); renderOmens(); }
+    });
+  });
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "placesLeft", playWord: "placements", ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           PLACEMENTS_PER_BLIND, SWAPS_PER_BLIND, HAND_SIZE, MIN_BONES, MAX_BONES,
+           freshBones, freshLayout, pips, sellValue, omenSellValue,
+           legalEndsFor, applyPlace, scorePlacement,
+           get blind() { return blind; }, get hand() { return hand; }, get yard() { return yard; },
+           get layout() { return layout; }, get selIdx() { return selIdx; },
+           startBlind, skipBlind, selectTile, placeFirst, placeAtEnd, swapSelected,
+           cashOut, buyStock, sellCharm, moveCharm, rerollShop, useOmen, sellOmen, simulate };
+})();
+window.DOM = DOM;
+
+/* plug Domino Dynasty into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:dom",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { placements: 0, pipsPlaced: 0, goOuts: 0, best: 0, beaten: 0, skips: 0, swaps: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, bones: null, loaded: [], nextBoneId: 100, boss: null })
+});
+</script>
+</body>
+</html>

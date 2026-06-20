@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roulette Rouge — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+.table-actions { grid-column: 2; display: flex; justify-content: flex-end; }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ====================================================================
+   ROULETTE ROUGE — game styles
+   ==================================================================== */
+/* ladder reference in the rail */
+.ladder { font-size: .8rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .1rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+.rr-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.rr-top { display: flex; gap: var(--space-3); align-items: stretch; }
+
+.wheel-wrap { position: relative; width: 300px; flex: 0 0 300px; text-align: center; }
+.wheel-wrap .pointer {
+  position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
+  border-top: 14px solid var(--gold-leaf); z-index: 2;
+}
+#wheel-svg { width: 300px; height: 300px; display: block; }
+#wheel-g { transform-box: view-box; transform-origin: 50% 50%; }
+.sector-label { font-family: var(--font-display); font-size: 9px; fill: var(--ivory); text-anchor: middle; }
+.sector.landed { filter: brightness(1.8); }
+
+.rr-side { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.rr-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.rr-result .num {
+  font-family: var(--font-display); font-weight: 900; font-size: 2rem; min-width: 4.2rem; text-align: center;
+  border: 1px solid var(--gold-leaf); border-radius: var(--radius); padding: .2rem .5rem;
+}
+.rr-result .num.rouge { color: var(--ivory); background: var(--crimson-velvet); }
+.rr-result .num.noir { color: var(--gold-leaf); background: var(--noir-velvet); }
+.rr-result .num.zero { color: var(--noir-velvet); background: var(--gold-leaf); }
+.rr-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { flex: 1; overflow: auto; max-height: 170px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.rr-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.rr-controls .tokens { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); }
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+/* betting board */
+.board-wrap { overflow-x: auto; }
+.board { display: grid; user-select: none; }
+.board .cell {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700; font-size: .82rem;
+  border: 1px solid rgba(201, 162, 75, .55); border-radius: var(--radius);
+  cursor: pointer; position: relative;
+}
+.board .cell.rouge { background: var(--crimson-velvet); color: var(--ivory); }
+.board .cell.noir { background: var(--noir-velvet); color: var(--gold-leaf); }
+.board .cell.zero { background: var(--gold-leaf); color: var(--noir-velvet); }
+.board .cell.outside { background: var(--noir-panel); color: var(--champagne); font-size: .68rem; letter-spacing: .08em; }
+.board .hot { cursor: pointer; position: relative; border-radius: var(--radius); }
+.board .hot:hover { background: rgba(239, 217, 167, .35); }
+.board .cell.lit { outline: 2px solid var(--champagne); outline-offset: -2px; filter: brightness(1.35); }
+.tok {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 18px; height: 18px; border-radius: 50%; pointer-events: none; z-index: 3;
+  background: radial-gradient(circle at 35% 30%, var(--champagne), var(--gold-leaf) 60%);
+  border: 2px solid var(--crimson-velvet);
+  box-shadow: 0 1px 3px rgba(0,0,0,.7);
+}
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+
+/* omens, bosses, wheel modifications */
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.board .cell.dead { opacity: .3; text-decoration: line-through; }
+.board .cell.loaded::after {
+  content: "●"; position: absolute; top: 1px; right: 3px; font-size: .5rem; color: var(--champagne);
+}
+.board .cell.neutral { background: #3A322A !important; color: var(--ivory) !important; }
+.board .cell.goldzero { box-shadow: 0 0 8px rgba(239, 217, 167, .8); }
+body.targeting .board .cell.targetable { cursor: crosshair; animation: targetPulse calc(1s / var(--speed)) infinite alternate; }
+@keyframes targetPulse { from { filter: brightness(1); } to { filter: brightness(1.6); } }
+#chooser {
+  display: none; position: fixed; inset: 0; z-index: 11;
+  background: rgba(18, 13, 10, .85); align-items: center; justify-content: center;
+}
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 300px; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+
+/* overlay (run over / victory) */
+#overlay {
+  display: none; position: fixed; inset: 0; z-index: 10;
+  background: rgba(18, 13, 10, .85);
+  align-items: center; justify-content: center;
+}
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; ROULETTE ROUGE</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Roulette <span style="color:var(--lipstick)">Rouge</span></h1>
+      <p class="flavor">Bet the wheel you built.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Spins</div><div class="value" id="rail-spins">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="rr-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+        <div class="rr-top">
+          <div class="wheel-wrap">
+            <div class="pointer"></div>
+            <svg id="wheel-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+          <div class="rr-side">
+            <div class="rr-result panel">
+              <div class="num noir" id="result-num">&mdash;</div>
+              <div>
+                <div id="result-label" class="flavor">Place your bets.</div>
+                <div class="gain" id="result-gain"></div>
+              </div>
+            </div>
+            <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">Event breakdown appears here after each spin.</li></ul></div>
+            <div class="rr-controls">
+              <button class="primary" id="btn-spin" disabled>Spin</button>
+              <button id="btn-clear">Clear Bets</button>
+              <button id="btn-cancel-target" hidden>Cancel</button>
+              <span class="tokens" id="token-count">TOKENS 0 / 5</span>
+            </div>
+          </div>
+        </div>
+        <div class="board-wrap"><div class="board" id="board"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose an event</h3>
+    <div id="chooser-options"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>roulette-rouge.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+
+/* ====================================================================
+   ROULETTE ROUGE — game module (spec.md §3.1)
+   Atomic object: the Pocket. Play: the Spin (≤5 bet tokens, 4 spins
+   per blind). The landed pocket scores once per winning bet covering it.
+   ==================================================================== */
+const RR = (() => {
+  // European single-zero wheel, clockwise from the zero
+  const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+  const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const PLAY_SIZE = 5, SPINS_PER_BLIND = 4, SPIN_MS = 3800;
+  const INTEREST_STEP = 5, INTEREST_CAP = 5; // $1 per $5 held, cap $5 (spec §2.7)
+
+  // skip tags (spec §2.3) — pre-rolled per ante, shown on the card before you commit
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +1 spin." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes. Hooks receive (inst, ctx); inst.state is
+     the charm's persisted memory. onEvent mutates ctx.chips / ctx.mult and
+     runs in STRICT charm-bar order, left to right — a ×Mult charm placed
+     left of a +Mult charm multiplies before the addition. */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat — always-on chips
+    doorman:    { name: "The Doorman",     type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+30 Chips on every event",
+      onEvent: (i, c) => { c.chips += 30; } },
+    inlay:      { name: "Brass Inlay",     type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+3 Chips per number the winning bet covers", // was +8: outsized on 18-number outside bets after the ladder rebase
+      onEvent: (i, c) => { c.chips += 3 * c.coverage; } },
+    bust:       { name: "Marble Bust",     type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+100 Chips on each spin's first event",
+      onEvent: (i, c) => { if (c.isFirst) c.chips += 100; } },
+    // scaling — grows over the run
+    regular:    { name: "The Regular",     type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ chips: 0 }),
+      desc: s => `+${s.chips} Chips on every event (+5 per spin played)`,
+      onEvent: (i, c) => { c.chips += i.state.chips; },
+      onSpinEnd: i => { i.state.chips += 5; } },
+    carnet:     { name: "Le Carnet",       type: "scaling", rarity: "Uncommon", cost: 7,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per blind beaten)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onBlindBeaten: i => { i.state.m += 1; } },
+    dust:       { name: "Dust Collector",  type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ r: 0 }),
+      desc: s => `×${(1 + s.r * 0.1).toFixed(1)} Mult on every event (+0.1 per reroll bought)`,
+      onEvent: (i, c) => { c.mult *= 1 + i.state.r * 0.1; },
+      onReroll: i => { i.state.r++; } }, // engine rerollShop fires onReroll (was inline pre-refactor)
+    vendetta:   { name: "Vendetta",        type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+2 whenever a spin scores nothing)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onSpinEnd: (i, e) => { if (!e.scored) i.state.m += 2; } },
+    // conditional
+    noir:       { name: "Noir Affinity",   type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "+4 Mult per event while the landed pocket is noir",
+      onEvent: (i, c) => { if (c.landedNoir) c.mult += 4; } },
+    insider:    { name: "Inside Man",      type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+6 Mult on inside-bet events (Six Line and up)",
+      onEvent: (i, c) => { if (c.event.rung >= 3) c.mult += 6; } },
+    fulltable:  { name: "Full Table",      type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "+100 Chips and +4 Mult on every event when all 5 tokens are placed",
+      onEvent: (i, c) => { if (c.spin.tokens >= PLAY_SIZE) { c.chips += 100; c.mult += 4; } } },
+    // economy
+    bursar:     { name: "The Bursar",      type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $1 after every spin that scores",
+      onSpinEnd: (i, e) => { if (e.scored) { e.run.money += 1; e.spin.moneyGained += 1; } } },
+    shark:      { name: "Loan Shark",      type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    cut:        { name: "Pit Boss's Cut",  type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["Pit Boss's Cut", 3] },
+    vip:        { name: "Velvet Rope VIP", type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    // +mult
+    stamp:      { name: "Crimson Stamp",   type: "+mult", rarity: "Common", cost: 5,
+      desc: () => "+4 Mult on every event",
+      onEvent: (i, c) => { c.mult += 4; } },
+    chandelier: { name: "Chandelier",      type: "+mult", rarity: "Uncommon", cost: 7,
+      desc: () => "+1 Mult per token placed this spin",
+      onEvent: (i, c) => { c.mult += c.spin.tokens; } },
+    heat:       { name: "Heat",            type: "+mult", rarity: "Uncommon", cost: 6,
+      desc: () => "+8 Mult on each spin's final event",
+      onEvent: (i, c) => { if (c.isLast) c.mult += 8; } },
+    // ×mult
+    phenix:     { name: "Le Phénix",       type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every event",
+      onEvent: (i, c) => { c.mult *= 1.5; } },
+    mirrors:    { name: "House of Mirrors", type: "×mult", rarity: "Rare", cost: 10,
+      desc: () => "×2 Mult on Split events and above",
+      onEvent: (i, c) => { if (c.event.rung >= 6) c.mult *= 2; } },
+    mechant:    { name: "Méchant",         type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult on the final event when 3+ events score",
+      onEvent: (i, c) => { if (c.isLast && c.spin.eventsCount >= 3) c.mult *= 3; } }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2); // half cost, rounded up (spec §2.7)
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     10 cards, three power tiers, 2 carry slots. use kinds:
+     instant — applies immediately; chooser — pick a ladder rung;
+     target — enter targeting mode and click pockets on the board. */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    // tier I — minor
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event",
+      apply: run => { const e = Rouge.rng.pick(LADDER); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    mortmin:  { name: "La Mort Mineure", tier: 1, cost: 4, use: "target", target: { kind: "mort", count: 1 },
+      desc: "Remove a chosen pocket from the wheel (not the zéro)" },
+    // tier II — major
+    housemarker: { name: "House Marker", tier: 2, cost: 6, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    lerouge:  { name: "Le Rouge",        tier: 2, cost: 6, use: "target", target: { kind: "recolor", count: 1 },
+      desc: "Flip a chosen pocket between rouge and noir" },
+    magnet:   { name: "The Magnet",      tier: 2, cost: 7, use: "target", target: { kind: "load", count: 1 },
+      desc: "A chosen pocket becomes twice as likely to land" },
+    tempo:    { name: "Tempo Bottle",    tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+2 spins this blind",
+      apply: () => { blind.spinsTotal += 2; blind.spinsLeft += 2; return "+2 spins"; } },
+    // tier III — prime
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    mortmaj:  { name: "La Mort Majeure", tier: 3, cost: 9, use: "target", target: { kind: "mort", count: 3 },
+      desc: "Remove three chosen pockets from the wheel (not the zéro)" },
+    zerodore: { name: "Le Zéro Doré",    tier: 3, cost: 9, use: "instant",
+      desc: "The zéro turns golden: lands 3× as often, Zéro levels up twice",
+      apply: run => { run.goldZero = true; bumpLevel(run, "zero", 2); return "the zéro gleams"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warping effects (spec §2.4) ----------------
+     One is rolled per ante (seeded) and rules the Boss Blind. */
+  const BOSSES = {
+    zerofatal:    { name: "Le Zéro Fatal",
+      desc: "Zéro coverage is void; the ball is drawn to the zéro (4× weight) and a zéro landing scores nothing" },
+    velvetrope:   { name: "The Velvet Rope", minAnte: 3, // floor-killers are gated past the early antes
+      desc: "Outside bets are roped off: Even-Money and Dozen/Column events score nothing" },
+    madamenoir:   { name: "Madame Noir",
+      desc: "Pocket colors are concealed until the ball lands" },
+    manacle:      { name: "The Manacle",
+      desc: "One fewer bet token (4 max)" },
+    finalcut:     { name: "The Final Cut", minAnte: 2,
+      desc: "One fewer spin this blind" },
+    rake:         { name: "The Rake",
+      desc: "Each spin costs $1" },
+    eye:          { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No scoring event may fire twice this blind — repeats score nothing" },
+    pitboss:      { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" },
+    counterfeiter:{ name: "The Counterfeiter",
+      desc: "Your wheel modifications are suppressed: weights, colors and removals revert for this blind" },
+    houseedge:    { name: "The House Edge", minAnte: 3,
+      desc: "Every event's base Mult is halved (minimum 1)" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  // active boss id, or null off the boss blind
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  // exponential target curve (spec §2.3)
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  // scoring-event ladder — base chips × base mult (spec §3.1)
+  // base chips × mult plus per-Marker-level increments (spec §3.1)
+  // Rebased in the 2026-06-11 hardening pass: the original bases made every
+  // consistent strategy unable to clear even Ante 1 (sim: 48/50 runs dead
+  // there). Low rungs now form a playable floor; Plein stays the jackpot.
+  const LADDER = [
+    { rung: 1, key: "even",     name: "Even-Money",  chips: 45,  mult: 2,  up: { c: 10, m: 2 } },
+    { rung: 2, key: "dozen",    name: "Dozen/Column",chips: 50,  mult: 2,  up: { c: 15, m: 2 } },
+    { rung: 3, key: "sixline",  name: "Six Line",    chips: 55,  mult: 3,  up: { c: 20, m: 2 } },
+    { rung: 4, key: "corner",   name: "Corner",      chips: 65,  mult: 3,  up: { c: 20, m: 3 } },
+    { rung: 5, key: "street",   name: "Street",      chips: 70,  mult: 4,  up: { c: 25, m: 3 } },
+    { rung: 6, key: "split",    name: "Split",       chips: 85,  mult: 5,  up: { c: 30, m: 3 } },
+    { rung: 7, key: "straight", name: "Straight Up", chips: 110, mult: 7,  up: { c: 40, m: 4 } },
+    { rung: 8, key: "zero",     name: "Zéro",        chips: 140, mult: 9,  up: { c: 50, m: 5 } },
+    { rung: 9, key: "plein",    name: "Plein Rouge", chips: 160, mult: 12, up: { c: 60, m: 6 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+
+  const pocketChip = n => n === 0 ? 25 : n; // pocket chip value = its number, zéro = 25
+
+  function eventForBet(bet, landed) {
+    let key = bet.type;
+    if (key === "dozen" || key === "column") key = "dozen";
+    if (key === "trio") key = "street"; // 0-trios score as streets
+    if (key === "straight" && landed === 0) key = "zero";
+    return RUNG[key];
+  }
+
+  /* ---------------- state ---------------- */
+  const bets = new Map(); // spot element -> {type, numbers, label}
+  let blind = null;       // {idx, target, score, spinsLeft, won, fired, banned}
+  let rot = 0, spinning = false, lastSeed = "";
+  let targeting = null;   // {idx, kind, left, applied} while aiming a targeted omen
+  let chooserOmenIdx = null;
+  let rougeBet = null, noirBet = null; // even-money color bets; coverage refreshes on recolor
+  const numCells = {};    // number -> cell element
+  const sectors = {};     // number -> svg path
+
+  /* ---------------- wheel state helpers ----------------
+     All take explicit (run, boss) so the headless simulator runs the
+     exact same code; defaults bind them to the live run. */
+  function isRouge(n, run = Rouge.run.current, boss = bossId()) {
+    if (n === 0) return false;
+    if (boss === "counterfeiter") return RED.has(n); // mods suppressed
+    const o = run?.pocketColors?.[n];
+    return o ? o === "rouge" : RED.has(n);
+  }
+
+  function pocketWeight(n, run = Rouge.run.current, boss = bossId()) {
+    let w = 1;
+    if (boss !== "counterfeiter") {
+      if (run.removed.includes(n)) return 0;
+      if (run.loaded.includes(n)) w *= 2;       // The Magnet
+      if (run.goldZero && n === 0) w *= 3;      // Le Zéro Doré
+    }
+    if (boss === "zerofatal" && n === 0) w *= 4; // the ball is drawn to the zéro
+    return w;
+  }
+
+  function drawPocket(run = Rouge.run.current, boss = bossId()) { // single PRNG draw per spin, weighted
+    let total = 0;
+    const weights = [];
+    for (let n = 0; n <= 36; n++) { weights[n] = pocketWeight(n, run, boss); total += weights[n]; }
+    let r = Rouge.rng.random() * total;
+    for (let n = 0; n <= 36; n++) { r -= weights[n]; if (r < 0) return n; }
+    return 36;
+  }
+
+  function eventBase(e, run = Rouge.run.current, boss = bossId()) { // ladder level (Markers) + House Edge
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    let chips = e.chips + lvl * e.up.c;
+    let mult = e.mult + lvl * e.up.m;
+    if (boss === "houseedge") mult = Math.max(1, Math.ceil(mult / 2));
+    return { chips, mult };
+  }
+
+  /* headless scoring core — the live table and RR.simulate share this */
+  function scoreSpin(landed, betList, run, blindState, boss) {
+    let won = betList.filter(b => b.numbers.includes(landed));
+    if (boss === "zerofatal") won = won.filter(b => !b.numbers.includes(0)); // zéro coverage void
+    const events = won.map(b => ({ bet: b, e: eventForBet(b, landed) }));
+    const types = new Set(won.map(b => b.type === "trio" ? "street" : b.type));
+    if (["straight","split","street","corner","sixline"].every(t => types.has(t)))
+      events.push({ bet: null, e: RUNG.plein }); // the complete bet on the landed number
+    events.sort((a, b) => a.e.rung - b.e.rung);
+    const pc = pocketChip(landed);
+    const spinCtx = { tokens: betList.length, eventsCount: events.length, moneyGained: 0 };
+    let gain = 0;
+    const details = events.map(({ bet, e }, idx) => {
+      let voided = null;
+      if (boss === "zerofatal" && landed === 0) voided = "SEALED";
+      else if (boss === "velvetrope" && (e.key === "even" || e.key === "dozen")) voided = "ROPED OFF";
+      else if (boss === "pitboss" && e.key === blindState.banned) voided = "BANNED";
+      else if (boss === "eye" && blindState.fired.has(e.key)) voided = "SEEN — NO REPEATS";
+      if (voided) return { name: e.name, voided };
+      blindState.fired.add(e.key);
+      const base = eventBase(e, run, boss);
+      const ctx = {
+        event: e, bet,
+        coverage: bet ? bet.numbers.length : 6, // plein has no single bet; counts as full coverage
+        chips: base.chips + pc, mult: base.mult,
+        isFirst: idx === 0, isLast: idx === events.length - 1,
+        landedNoir: landed !== 0 && !isRouge(landed, run, boss),
+        spin: spinCtx, run
+      };
+      // charms apply in STRICT left-to-right bar order
+      for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx);
+      const score = Math.floor(ctx.chips * ctx.mult);
+      gain += score;
+      return { name: e.name, chips: ctx.chips, mult: ctx.mult, score };
+    });
+    for (const inst of run.charms) CHARMS[inst.id].onSpinEnd?.(inst, { scored: gain > 0, gain, spin: spinCtx, run });
+    return { gain, details, moneyGained: spinCtx.moneyGained };
+  }
+
+  const playSizeNow = () => bossId() === "manacle" ? PLAY_SIZE - 1 : PLAY_SIZE;
+
+  function refreshColorBets() {
+    const all = Array.from({ length: 36 }, (_, i) => i + 1);
+    if (rougeBet) rougeBet.numbers = all.filter(n => isRouge(n));
+    if (noirBet) noirBet.numbers = all.filter(n => !isRouge(n));
+  }
+
+  function applyTableMods() { // board + wheel visuals for removals/loads/recolors/bosses
+    const run = Rouge.run.current;
+    if (!run) return;
+    ensureRunShape(run);
+    const b = bossId();
+    const hide = b === "madamenoir";
+    const suppress = b === "counterfeiter";
+    for (let n = 0; n <= 36; n++) {
+      const cell = numCells[n], sec = sectors[n];
+      if (!cell || !sec) continue;
+      const dead = !suppress && run.removed.includes(n);
+      const rouge = isRouge(n);
+      cell.classList.toggle("dead", dead);
+      cell.classList.toggle("loaded", !suppress && run.loaded.includes(n));
+      cell.classList.toggle("neutral", hide);
+      cell.classList.toggle("goldzero", n === 0 && run.goldZero && !suppress);
+      if (n !== 0) {
+        cell.classList.toggle("rouge", !hide && rouge);
+        cell.classList.toggle("noir", !hide && !rouge);
+      }
+      sec.setAttribute("fill", hide ? "#3A322A" : n === 0 ? "#C9A24B" : rouge ? "#8A1B2B" : "#1E1611");
+      sec.setAttribute("opacity", dead ? .25 : 1);
+    }
+    refreshColorBets();
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+
+  /* ---------------- wheel ---------------- */
+  function buildWheel() {
+    const svg = $("wheel-svg"), NS = "http://www.w3.org/2000/svg";
+    const g = document.createElementNS(NS, "g");
+    g.id = "wheel-g";
+    const c = 160, r = 152, th = 360 / 37;
+    const pt = (aDeg, rad) => {
+      const a = aDeg * Math.PI / 180;
+      return `${(c + rad * Math.sin(a)).toFixed(2)},${(c - rad * Math.cos(a)).toFixed(2)}`;
+    };
+    WHEEL.forEach((n, i) => {
+      const a0 = i * th - th / 2, a1 = i * th + th / 2;
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", `M ${c},${c} L ${pt(a0, r)} A ${r} ${r} 0 0 1 ${pt(a1, r)} Z`);
+      path.setAttribute("fill", n === 0 ? "#C9A24B" : RED.has(n) ? "#8A1B2B" : "#1E1611");
+      path.setAttribute("stroke", "rgba(201,162,75,.6)");
+      path.setAttribute("stroke-width", ".5");
+      path.classList.add("sector");
+      sectors[n] = path;
+      g.appendChild(path);
+      const [lx, ly] = pt(i * th, 132).split(",");
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", lx); t.setAttribute("y", ly);
+      t.setAttribute("transform", `rotate(${(i * th).toFixed(2)} ${lx} ${ly})`);
+      t.setAttribute("class", "sector-label");
+      if (n === 0) t.setAttribute("fill", "#120D0A");
+      t.textContent = n;
+      g.appendChild(t);
+    });
+    const hub = document.createElementNS(NS, "circle");
+    hub.setAttribute("cx", c); hub.setAttribute("cy", c); hub.setAttribute("r", 58);
+    hub.setAttribute("fill", "#1E1611"); hub.setAttribute("stroke", "#C9A24B");
+    g.appendChild(hub);
+    const rim = document.createElementNS(NS, "circle");
+    rim.setAttribute("cx", c); rim.setAttribute("cy", c); rim.setAttribute("r", r);
+    rim.setAttribute("fill", "none"); rim.setAttribute("stroke", "#C9A24B"); rim.setAttribute("stroke-width", "2");
+    svg.appendChild(g);
+    svg.appendChild(rim);
+  }
+
+  /* ---------------- betting board ----------------
+     CSS grid where odd tracks are cells and even tracks are gutters;
+     split/corner/street/six-line hotspots live natively in the gutters. */
+  function buildBoard() {
+    const board = $("board");
+    const colTracks = ["40px","12px"];
+    for (let k = 1; k <= 12; k++) { colTracks.push("40px"); if (k < 12) colTracks.push("12px"); }
+    colTracks.push("14px","48px");
+    board.style.gridTemplateColumns = colTracks.join(" ");
+    board.style.gridTemplateRows = "38px 12px 38px 12px 38px 16px 10px 36px 8px 36px";
+
+    const colOf = k => 2 * k + 1;      // number column k → grid track
+    const gutAfter = k => 2 * k + 2;   // gutter between columns k, k+1
+    const seq = a => a.join("·"); // 8·11 labels
+
+    const spots = [];
+    // zero + numbers
+    spots.push({ type:"straight", numbers:[0], label:"Straight Up 0", col:"1", row:"1 / 6", cls:"cell zero", text:"0" });
+    for (let k = 1; k <= 12; k++) {
+      [[3*k, 1], [3*k-1, 3], [3*k-2, 5]].forEach(([n, row]) => {
+        spots.push({ type:"straight", numbers:[n], label:`Straight Up ${n}`,
+          col: String(colOf(k)), row: String(row),
+          cls: "cell " + (RED.has(n) ? "rouge" : "noir"), text: String(n), isNum: n });
+      });
+    }
+    // zero splits + trios in the zero gutter
+    [[1,[0,3]],[3,[0,2]],[5,[0,1]]].forEach(([row, nums]) =>
+      spots.push({ type:"split", numbers:nums, label:`Split ${seq(nums)}`, col:"2", row:String(row), cls:"hot" }));
+    [[2,[0,2,3]],[4,[0,1,2]]].forEach(([row, nums]) =>
+      spots.push({ type:"trio", numbers:nums, label:`Trio ${seq(nums)}`, col:"2", row:String(row), cls:"hot" }));
+    // splits between horizontal neighbours, corners
+    for (let k = 1; k <= 11; k++) {
+      [[1,[3*k, 3*k+3]],[3,[3*k-1, 3*k+2]],[5,[3*k-2, 3*k+1]]].forEach(([row, nums]) =>
+        spots.push({ type:"split", numbers:nums, label:`Split ${seq(nums)}`, col:String(gutAfter(k)), row:String(row), cls:"hot" }));
+      [[2,[3*k-1, 3*k, 3*k+2, 3*k+3]],[4,[3*k-2, 3*k-1, 3*k+1, 3*k+2]]].forEach(([row, nums]) =>
+        spots.push({ type:"corner", numbers:nums, label:`Corner ${seq(nums)}`, col:String(gutAfter(k)), row:String(row), cls:"hot" }));
+    }
+    // splits between stacked neighbours
+    for (let k = 1; k <= 12; k++) {
+      [[2,[3*k-1, 3*k]],[4,[3*k-2, 3*k-1]]].forEach(([row, nums]) =>
+        spots.push({ type:"split", numbers:nums, label:`Split ${seq(nums)}`, col:String(colOf(k)), row:String(row), cls:"hot" }));
+    }
+    // streets + six lines along the bottom edge
+    for (let k = 1; k <= 12; k++) {
+      const nums = [3*k-2, 3*k-1, 3*k];
+      spots.push({ type:"street", numbers:nums, label:`Street ${seq(nums)}`, col:String(colOf(k)), row:"6", cls:"hot" });
+      if (k < 12) {
+        const six = [3*k-2, 3*k-1, 3*k, 3*k+1, 3*k+2, 3*k+3];
+        spots.push({ type:"sixline", numbers:six, label:`Six Line ${3*k-2}–${3*k+3}`, col:String(gutAfter(k)), row:"6", cls:"hot" });
+      }
+    }
+    // dozens
+    for (let d = 1; d <= 3; d++) {
+      const nums = Array.from({length:12}, (_, i) => 12*(d-1) + i + 1);
+      spots.push({ type:"dozen", numbers:nums, label:`${["1st","2nd","3rd"][d-1]} 12`,
+        col:`${2*(4*d-3)+1} / ${8*d+2}`, row:"8", cls:"cell outside", text:`${["1ST","2ND","3RD"][d-1]} 12` });
+    }
+    // even-money
+    const all = Array.from({length:36}, (_, i) => i + 1);
+    [
+      ["1–18", all.filter(n => n <= 18)],
+      ["EVEN", all.filter(n => n % 2 === 0)],
+      ["ROUGE", all.filter(n => RED.has(n))],
+      ["NOIR", all.filter(n => !RED.has(n))],
+      ["ODD", all.filter(n => n % 2 === 1)],
+      ["19–36", all.filter(n => n >= 19)]
+    ].forEach(([text, nums], j) =>
+      spots.push({ type:"even", numbers:nums, label:`Even-Money ${text}`,
+        col:`${4*j+3} / ${4*j+6}`, row:"10", cls:"cell outside", text }));
+    // column bets
+    [[1, 0],[3, 2],[5, 1]].forEach(([row, mod]) =>
+      spots.push({ type:"column", numbers: all.filter(n => n % 3 === mod), label:"Column 2:1",
+        col:"27", row:String(row), cls:"cell outside", text:"2:1" }));
+
+    for (const s of spots) {
+      const el = document.createElement("div");
+      el.className = s.cls;
+      el.style.gridColumn = s.col;
+      el.style.gridRow = s.row;
+      el.title = s.label;
+      if (s.text) el.textContent = s.text;
+      el._bet = { type: s.type, numbers: s.numbers, label: s.label };
+      if (s.label === "Even-Money ROUGE") rougeBet = el._bet;
+      if (s.label === "Even-Money NOIR") noirBet = el._bet;
+      if (s.isNum !== undefined || (s.type === "straight" && s.numbers[0] === 0)) numCells[s.numbers[0]] = el;
+      el.addEventListener("click", () => toggleBet(el));
+      el.addEventListener("mouseenter", () => light(s.numbers, true));
+      el.addEventListener("mouseleave", () => light(s.numbers, false));
+      board.appendChild(el);
+    }
+  }
+
+  function light(numbers, on) {
+    numbers.forEach(n => { if (numCells[n]) numCells[n].classList.toggle("lit", on); });
+  }
+
+  /* ---------------- bets ---------------- */
+  function toggleBet(el) {
+    if (targeting) { handleTarget(el); return; } // omen aiming intercepts board clicks
+    if (spinning || !blind || blind.won || blind.spinsLeft === 0) return;
+    if (bets.has(el)) {
+      bets.delete(el);
+      el.querySelector(".tok")?.remove();
+    } else {
+      if (bets.size >= playSizeNow()) return; // The Manacle: -1 token on its boss blind
+      bets.set(el, el._bet);
+      const tok = document.createElement("div");
+      tok.className = "tok";
+      el.appendChild(tok);
+      Rouge.audio.play("chip");
+    }
+    syncControls();
+  }
+
+  function clearBets() {
+    bets.forEach((_, el) => el.querySelector(".tok")?.remove());
+    bets.clear();
+    syncControls();
+  }
+
+  /* ---------------- blind flow ---------------- */
+  // older saves predate the run-loop fields — fill them in
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { spins: 0, best: 0, beaten: 0, skips: 0 };
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    run.removed ??= [];
+    run.loaded ??= [];
+    run.pocketColors ??= {};
+    run.goldZero ??= false;
+    if (!("boss" in run)) run.boss = null;
+    // older shop saves stocked bare charm ids — normalize to {kind, id}
+    if (run.shop?.stock) run.shop.stock = run.shop.stock.map(s =>
+      typeof s === "string" ? { kind: "charm", id: s } : s);
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    // tags apply to "your next blind": read them now, consume them at collection
+    // so a mid-blind reload (which restarts the blind) doesn't burn them
+    if (targeting) endTargeting(targeting.applied > 0); // stale aiming from a restarted blind
+    const usedTags = [];
+    let spins = SPINS_PER_BLIND, rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { spins++; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    if (idx === 2 && run.boss === "finalcut") spins = Math.max(1, spins - 1);
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              spinsTotal: spins, spinsLeft: spins, won: false, rewardMult, usedTags,
+              fired: new Set(), banned: null };
+    if (idx === 2 && run.boss === "pitboss") {
+      // most-leveled rung; ties go to the highest rung
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    const bb = $("boss-banner");
+    if (idx === 2 && run.boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[run.boss].name}</b> &mdash; ${BOSSES[run.boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    clearBets();
+    $("breakdown-list").innerHTML = '<li class="flavor">Event breakdown appears here after each spin.</li>';
+    $("result-num").textContent = "—";
+    $("result-num").className = "num noir";
+    $("result-label").textContent = "Place your bets.";
+    $("result-gain").textContent = "";
+    $("win-banner").classList.remove("show");
+    $("win-banner").innerHTML = "";
+    Object.values(sectors).forEach(p => p.classList.remove("landed"));
+    applyTableMods();
+    renderCharms();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    syncControls();
+    Rouge.router.go("table");
+  }
+
+  function spin() {
+    if (spinning || !blind || blind.won || blind.spinsLeft === 0 || bets.size === 0) return;
+    spinning = true;
+    syncControls();
+    Rouge.audio.play("spin");
+
+    if (bossId() === "rake") { // The Rake takes its dollar up front
+      Rouge.run.current.money = Math.max(0, Rouge.run.current.money - 1);
+      renderRail();
+    }
+    const landed = drawPocket(); // THE spin — one weighted PRNG draw per play
+    Rouge.run.persist();         // commit the advanced rng state (no save-scumming the wheel)
+
+    const th = 360 / 37, idx = WHEEL.indexOf(landed);
+    const dur = Rouge.speed.ms(SPIN_MS);
+    rot = rot + 5 * 360 + ((((-idx * th - rot) % 360) + 360) % 360);
+    const g = $("wheel-g");
+    Object.values(sectors).forEach(p => p.classList.remove("landed"));
+    g.style.transition = `transform ${dur}ms cubic-bezier(.15,.65,.08,1)`;
+    g.style.transform = `rotate(${rot}deg)`;
+
+    setTimeout(() => resolveSpin(landed), dur + 80);
+  }
+
+  function resolveSpin(landed) {
+    Rouge.audio.play("land");
+    sectors[landed].classList.add("landed");
+
+    // every winning bet emits its event; the shared core resolves them
+    const boss = bossId();
+
+    const run = Rouge.run.current;
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    const result = scoreSpin(landed, [...bets.values()], run, blind, boss);
+    const gain = result.gain;
+    const lines = result.details.map(d => d.voided
+      ? `<li><span class="ev">${d.name}</span><span class="math"><b style="color:var(--lipstick)">${d.voided}</b></span></li>`
+      : `<li><span class="ev">${d.name}</span><span class="math"><span class="c">${fmt(d.chips)}</span> × <span class="m">${fmtMult(d.mult)}</span> = <b>${fmt(d.score)}</b></span></li>`);
+
+    blind.score += gain;
+    blind.spinsLeft--;
+    run.stats.spins++;
+    if (gain > run.stats.best) run.stats.best = gain;
+
+    $("result-num").textContent = landed;
+    $("result-num").className = "num " + (landed === 0 ? "zero" : isRouge(landed) ? "rouge" : "noir");
+    $("result-label").textContent = landed === 0 ? "ZÉRO" : isRouge(landed) ? "ROUGE" : "NOIR";
+    $("result-gain").textContent = gain > 0
+      ? `+${fmt(gain)}${result.moneyGained ? ` · +$${result.moneyGained}` : ""}`
+      : "no winning bets";
+    $("breakdown-list").innerHTML = lines.length ? lines.join("") : '<li class="flavor">The house keeps this one.</li>';
+
+    spinning = false;
+    renderCharms(); // scaling charms update their descriptions
+    renderRail(); // before win/lose — loseRun abandons the run and renderRail would bail out
+    if (blind.score >= blind.target) winBlind();
+    else if (blind.spinsLeft === 0) loseRun();
+    syncControls(); // after winBlind so a won blind locks the spin button
+    Rouge.run.persist();
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Roulette Rouge bows out."
+      : `The wheel had other plans — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed],
+      ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`],
+      ["Blinds beaten", run.stats.beaten],
+      ["Blinds skipped", run.stats.skips],
+      ["Spins played", run.stats.spins],
+      ["Best spin", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- omens — use / target / choose ---------------- */
+  function canUseOmen(o) {
+    if (spinning || targeting) return false;
+    const onTable = Rouge.router.current === "table";
+    if (o.use === "target") return onTable && !!blind && !blind.won;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && blind.spinsLeft > 0;
+    return true; // instants & choosers work wherever the bar is shown
+  }
+
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") {
+      const note = o.apply(run);
+      consumeOmen(idx, note);
+    } else if (o.use === "chooser") {
+      openChooser(idx);
+    } else { // target: aim by clicking number cells on the board
+      targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0 };
+      document.body.classList.add("targeting");
+      markTargetables();
+      $("btn-cancel-target").hidden = false;
+      $("result-label").textContent = `${o.name}: choose ${targeting.left} pocket${targeting.left > 1 ? "s" : ""} on the board`;
+      syncControls();
+    }
+  }
+
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens();
+    renderLadder();
+    applyTableMods();
+    renderRail();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+  }
+
+  function markTargetables() {
+    const run = Rouge.run.current;
+    for (let n = 0; n <= 36; n++) {
+      const cell = numCells[n];
+      if (!cell) continue;
+      let ok = false;
+      if (targeting) {
+        if (targeting.kind === "mort") ok = n !== 0 && !run.removed.includes(n); // the house keeps its number
+        if (targeting.kind === "recolor") ok = n !== 0;
+        if (targeting.kind === "load") ok = !run.removed.includes(n) && !run.loaded.includes(n);
+      }
+      cell.classList.toggle("targetable", ok);
+    }
+  }
+
+  function handleTarget(el) {
+    const bet = el._bet;
+    if (!bet || bet.type !== "straight" || !el.classList.contains("targetable")) return;
+    const n = bet.numbers[0];
+    const run = Rouge.run.current;
+    if (targeting.kind === "mort") run.removed.push(n);
+    if (targeting.kind === "recolor") run.pocketColors[n] = isRouge(n) ? "noir" : "rouge";
+    if (targeting.kind === "load") run.loaded.push(n);
+    targeting.applied++;
+    targeting.left--;
+    applyTableMods();
+    markTargetables();
+    $("btn-cancel-target").disabled = true; // committed once the wheel is touched
+    if (targeting.left === 0) endTargeting(true);
+    else $("result-label").textContent = `${targeting.left} more…`;
+  }
+
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    document.body.classList.remove("targeting");
+    markTargetables();
+    $("btn-cancel-target").hidden = true;
+    $("btn-cancel-target").disabled = false;
+    if (consume) consumeOmen(idx, "the wheel remembers");
+    else { $("result-label").textContent = "Place your bets."; renderOmens(); }
+    syncControls();
+  }
+
+  function openChooser(idx) {
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    const opts = $("chooser-options");
+    opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => {
+        bumpLevel(run, e.key, 2); // House Marker levels twice
+        $("chooser").classList.remove("show");
+        consumeOmen(chooserOmenIdx, `${e.name} leveled up`);
+        chooserOmenIdx = null;
+      });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+
+  /* ---------------- shop ----------------
+     2 item slots, seeded stock, escalating reroll that resets each shop
+     visit. Stock persists in the run save: reloading mid-shop cannot
+     re-roll the offer. */
+  /* ---------------- RR.simulate — headless balance harness ----------------
+     Plays n seeded runs through the REAL core (scoreSpin, drawPocket,
+     eventBase, buildCashout, pickStock) with a fixed mid-skill bot:
+     - bets a 5-token stack (straight+split+street+corner+sixline) on the
+       highest alive pocket; drops the six line under The Manacle
+     - buys any affordable charm/omen; additive charms left of ×mult
+     - omens used on acquisition (markers → Straight Up, Mort → thin
+       non-covered pockets, Magnet → load the center, Le Rouge sold,
+       Tempo held for the next blind); never skips, never rerolls
+     Touches neither the DOM nor the live run; restores the RNG state. */
+  function simBuildStack(c, manacle) {
+    // bot v2: guaranteed floor (rouge + noir — exactly one wins on any
+    // non-zéro landing) plus a focused inside stack for the ceiling
+    const all = Array.from({ length: 36 }, (_, i) => i + 1);
+    const k = Math.ceil(c / 3);
+    let corner = null;
+    outer: for (let kk = 1; kk <= 11; kk++) {
+      for (const set of [[3*kk-1, 3*kk, 3*kk+2, 3*kk+3], [3*kk-2, 3*kk-1, 3*kk+1, 3*kk+2]]) {
+        if (set.includes(c)) { corner = set; break outer; }
+      }
+    }
+    const bets = [
+      { type: "even", numbers: all.filter(n => RED.has(n)), label: "sim rouge" },
+      { type: "even", numbers: all.filter(n => !RED.has(n)), label: "sim noir" },
+      { type: "straight", numbers: [c], label: "sim straight" },
+      { type: "corner", numbers: corner, label: "sim corner" }
+    ];
+    if (!manacle) bets.push({ type: "street", numbers: [3*k-2, 3*k-1, 3*k], label: "sim street" });
+    return bets;
+  }
+  const simInsideCoverage = c => new Set(simBuildStack(c, false).filter(b => b.type !== "even").flatMap(b => b.numbers));
+
+  function simOneRun(seed) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null], stats: { spins: 0, best: 0, beaten: 0, skips: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {}, removed: [],
+      loaded: [], pocketColors: {}, goldZero: false, boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (cond, msg) => { if (!cond) bugs.push(`${seed}: ${msg}`); };
+    let tempoHeld = 0;
+
+    const pickCenter = () => { for (let n = 36; n >= 1; n--) if (!run.removed.includes(n)) return n; return 1; };
+    const lowestNonCovered = () => { // thin pockets the inside stack doesn't cover
+      const cov = simInsideCoverage(pickCenter());
+      for (let n = 1; n <= 36; n++) if (!run.removed.includes(n) && !cov.has(n)) return n;
+      return null;
+    };
+    const useOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.even ?? 0) >= 4 ? "straight" : "even", 2); // floor first, then the ceiling
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "zerodore") { run.goldZero = true; bumpLevel(run, "zero", 2); }
+        else if (id === "magnet") { const c = pickCenter(); if (!run.loaded.includes(c)) run.loaded.push(c); }
+        else if (id === "mortmin" || id === "mortmaj") {
+          for (let k = 0, cnt = id === "mortmaj" ? 3 : 1; k < cnt; k++) {
+            const v = lowestNonCovered();
+            if (v != null) run.removed.push(v);
+          }
+        }
+        else if (id === "lerouge") run.money += omenSellValue(id); // bot sells it
+        else if (id === "tempo") tempoHeld++;
+        run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") {
+          if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) {
+            run.money -= CHARMS[entry.id].cost;
+            run.charms.push(newCharm(entry.id));
+          }
+        } else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) {
+          run.money -= OMENS[entry.id].cost;
+          run.consumables.push(entry.id);
+        }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useOmens();
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let spins = SPINS_PER_BLIND + 2 * tempoHeld;
+        tempoHeld = 0;
+        if (boss === "finalcut") spins = Math.max(1, spins - 1);
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0,
+          spinsTotal: spins, spinsLeft: spins, won: false, rewardMult: 1, usedTags: [],
+          fired: new Set(), banned: null };
+        if (boss === "pitboss") {
+          let best = LADDER[0];
+          for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+          blindState.banned = best.key;
+        }
+        const stack = simBuildStack(pickCenter(), boss === "manacle");
+        while (blindState.spinsLeft > 0 && !blindState.won) {
+          if (boss === "rake") run.money = Math.max(0, run.money - 1);
+          const landed = drawPocket(run, boss);
+          const res = scoreSpin(landed, stack, run, blindState, boss);
+          assert(Number.isFinite(res.gain) && res.gain >= 0, `bad gain ${res.gain} A${ante}/${bi}`);
+          blindState.score += res.gain;
+          blindState.spinsLeft--;
+          run.stats.spins++;
+          if (res.gain > run.stats.best) run.stats.best = res.gain;
+          if (blindState.score >= blindState.target) blindState.won = true;
+        }
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won,
+          spinsUsed: blindState.spinsTotal - blindState.spinsLeft, money: run.money });
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money ${run.money} A${ante}/${bi}`);
+        run.stats.beaten++;
+        shop();
+      }
+    }
+    rec.result = "WIN";
+    rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    for (let r = 1; r <= runs; r++) {
+      try {
+        const { rec, bugs } = simOneRun(`SIM-${r}`);
+        out.runs.push(rec);
+        out.bugs.push(...bugs);
+      } catch (err) {
+        out.bugs.push(`SIM-${r} crashed: ${err.message}`);
+      }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++;
+        if (b.won) k.won++;
+        k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) {
+      k.ratios.sort((a, b) => a - b);
+      k.median = k.ratios[Math.floor(k.ratios.length / 2)];
+      k.pass = +(k.won / k.n).toFixed(2);
+      delete k.ratios;
+    }
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- rendering ---------------- */
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-spins").textContent = `${blind.spinsLeft} / ${blind.spinsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length
+      ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ")
+      : "—";
+  }
+
+  function syncControls() {
+    $("btn-spin").disabled = spinning || !!targeting || !blind || blind.won || blind.spinsLeft === 0 || bets.size === 0;
+    $("btn-clear").disabled = spinning || !!targeting || bets.size === 0;
+    $("token-count").textContent = `TOKENS ${bets.size} / ${playSizeNow()}`;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    buildWheel();
+    buildBoard();
+    renderLadder();
+    $("btn-spin").addEventListener("click", spin);
+    $("btn-clear").addEventListener("click", clearBets);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null;
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed; // easy retry of the same seed
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null;
+      Rouge.run.start(""); // fresh random seed
+    });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("btn-cancel-target").addEventListener("click", () => {
+      if (targeting && targeting.applied === 0) endTargeting(false);
+    });
+    $("chooser-cancel").addEventListener("click", () => {
+      $("chooser").classList.remove("show");
+      chooserOmenIdx = null;
+    });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") {
+        if (run) {
+          ensureRunShape(run);
+          if (run.shop) { run.shop = null; Rouge.run.persist(); } // shop closes; next visit re-rolls
+        }
+        renderBlindSelect();
+      }
+      if (e.detail.screen === "shop" && run) {
+        ensureRunShape(run);
+        if (!run.shop) rollShop();
+        renderShop();
+        renderCharms();
+        renderOmens();
+      }
+    });
+  });
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "spinsLeft", playWord: "spins", ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => spinning || targeting
+  });
+
+  return { LADDER, WHEEL, RED, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           PLAY_SIZE, SPINS_PER_BLIND, pocketChip, sellValue, omenSellValue,
+           get blind() { return blind; }, get bets() { return bets; },
+           startBlind, skipBlind, spin, clearBets, cashOut,
+           buyStock, sellCharm, moveCharm, rerollShop,
+           useOmen, sellOmen, isRouge, applyTableMods, simulate };
+})();
+window.RR = RR;
+
+/* plug Roulette Rouge into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { spins: 0, best: 0, beaten: 0, skips: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, removed: [], loaded: [],
+    pocketColors: {}, goldZero: false, boss: null })
+});
+</script>
+</body>
+</html>

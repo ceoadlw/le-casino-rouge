@@ -1,0 +1,710 @@
+=== Session 2026-06-11 — spec.md (v0.1) ===
+Feature: wrote the founding design spec for The Rouge Casino (casino-suite/spec.md,
+copied to outputs/spec.md). Note: session rules name /home/claude/casino-suite/, but
+this machine is Windows — project rooted at E:\Claude Projects\casino-suite\ instead.
+
+Contents: shared Balatro-style spine (chips×mult scoring resolver, 8 antes × 3 blinds
+with base-stake target table, universal boss roster of 10 + per-game translation
+table, shop with charms/Omens/Markers/vouchers/packs, $1-per-$5 interest economy
+capped at +$5, enhancements/seals/editions defined over a single atomic-object
+interface, GameModule contract). Then all 8 games, each defining its atomic object
+(Pocket, Card, Symbol, Die Face, Cell, Dart, Bone, Tile), play + discard-analog,
+reserve zone, scoring-event ladder (8-10 rungs w/ base chips×mult + Marker level-up
+increments), and 2 signature bosses. Closed with art deco visual identity (gold
+#C9A24B / crimson #8A1B2B / noir palette, Cinzel display + EB Garamond body, layout
+and motif rules) and 4 deferred open questions (stakes, Grand Tour persistence,
+game-specific charms, endless scaling).
+
+Key design decisions: a run = one game (Grand Tour is a stretch mode); multi-event
+plays resolve each event independently in ascending rung order and sum; Markers draw
+only from the active game's ladder; charms are 100% game-agnostic via engine hooks;
+Roulette scores the landed pocket once per covering winning bet (retrigger-style) to
+keep outside bets from flooding chip totals.
+
+Next session candidates: pick one game (Roulette Rouge is the flagship) and implement
+its GameModule + the scoring resolver; or lock the charm pool (target ~60 charms).
+
+=== Session 2026-06-11 (b) — template.html (v0.1) ===
+Feature: built template.html, the single-file skeleton every game clones (copied to
+outputs/). No game logic. Contents: seeded mulberry32 PRNG (string seeds via xmur3,
+serializable 32-bit state, int/pick/chance/shuffle helpers, Math.random tripwire that
+console-warns); versioned localStorage save layer (Store: namespaced keys, {v, data}
+envelope, migration hook, quota-safe try/catch); silent AudioMgr stub (register/play/
+mute/volume — interface final, playback later); CSS design tokens from spec §4 (full
+palette, Cinzel/EB Garamond, double-rule gold panels, sunburst, chevron dividers);
+1x/2x/4x speed setting driving a --speed CSS var (all --dur-* divide by it) plus
+Speed.ms() for JS timers, persisted in settings; screen router (menu → blind-select →
+table → shop) with data-go button delegation and a rouge:screen event. Minimal Run
+shell (seed + rngState + screen) proves save/load end-to-end: New Run/Continue work
+across reloads. Everything exposed as window.Rouge.
+
+Verified live in browser preview (python http.server via .claude/launch.json, new
+file at workspace root): RNG determinism + exact state round-trip, store round-trip/
+fallback/versioned envelope, full router walk, bad-route guard, speed persistence
+(2x survived reload, computed animation 0.15s), resume restores screen/seed/state.
+Bug found & fixed during verification: init() seeded state unsigned (>>>0) while
+setState/random normalize signed (|0) — same bits, but strict equality on saved
+state failed; init now normalizes |0 so persisted rngState round-trips exactly.
+
+Next session candidates: implement Roulette Rouge's GameModule on this template, or
+extract the scoring resolver (chips×mult event pipeline) as the next shared piece.
+
+=== Session 2026-06-11 (c) — roulette-rouge.html (v0.1) ===
+Feature: first playable game, cloned from template.html (copied to outputs/).
+Implemented: European single-zero wheel as a generated SVG (37 sectors, authentic
+pocket order, spin animation honors the 1x/2x/4x speed setting, one rng.int(0,36)
+draw per spin, persisted immediately so the wheel can't be save-scummed); full
+betting layout as a CSS grid where odd tracks are cells and even tracks are gutter
+hotspots — straights, splits (incl. 0-splits), corners, streets, trios, six lines,
+dozens, columns, even-money = 156 spots, up to 5 tokens (spec play size), hover
+lights covered numbers; scoring ladder spec §3.1 all 9 rungs (Even-Money 5x1 …
+Plein Rouge 160x12) — each winning bet emits its event, resolved ascending,
+(base chips + landed-pocket chips) x mult, summed, with a per-spin breakdown
+panel; blind flow: 4 spins per blind vs spec §2.3 target table, win → cash out
+($3/$4/$5 + $1 per unused spin) → shop stub → next blind, boss beaten → next ante,
+ante 8 boss → victory; spins exhausted → run over (run cleared). Run save extended
+with ante/blind/money; resuming from mid-blind restarts the blind at blind-select.
+
+Verified in browser preview: board generates exactly 156 spots and 37 sectors;
+predicted the PRNG's next landing (9), placed the full covering bet, every ladder
+line matched hand math incl. Plein Rouge detection (total 3,105 = 2835+30x9);
+reward math ($3+$3 unused spins); blind progression BEATEN/PLAYABLE/LOCKED;
+guaranteed-loss path → Run Over overlay, run cleared, Continue disabled; same
+seed reproduces the same first landing. Bug found & fixed: rail showed stale spin
+count at run-over because loseRun() abandoned the run before renderRail(); spin
+resolution now renders the rail before the win/lose check and syncs controls
+after. (Note: preview screenshot tool timed out repeatedly — page healthy, zero
+console errors; visuals verified via computed-style inspection instead.)
+
+Not in scope (future sessions): boss effects, Croupier's Nudge (discard analog),
+shop logic, pocket enhancements/Omens/Markers, interest payout at shop entry.
+
+=== Session 2026-06-11 (d) — run loop in roulette-rouge.html ===
+Feature: completed the run loop (copied to outputs/). Already present from last
+session: 8 antes x Small/Big/Boss with the spec §2.3 exponential target table and
+base payouts. New this session: (1) skip on blind select — Small/Big skippable for
+a pre-rolled seeded Tag shown on the card (Comp Tag +$8 after next boss, Tempo Tag
++1 spin next blind, High-Roller Tag next reward x2); bosses unskippable; tags
+persist in the run save, render on blind-select and in a new rail panel; consumed
+at collection so mid-blind reloads don't burn them. (2) Interest — $1 per $5 held,
+cap $5, computed on the balance at blind win, paid at collection. (3) Itemized
+cash-out panel replacing the win banner: blind reward (x2 line when High-Roller),
+unused spins, Comp payouts at boss, interest, Collect button with total (the old
+bottom-right Cash Out button removed). (4) Win/lose end screens: full-screen
+overlay with stats grid (seed, ante reached, money, blinds beaten/skipped, spins
+played, best spin) + New Run / Lobby buttons; Lobby prefills the seed for retries.
+Run state extended (tags/activeTags/blindStatus/stats) with defensive defaults for
+older saves; blind cards show BEATEN / SKIPPED / LOCKED.
+
+Verified in browser preview end-to-end on seed LOOP-1: deterministic tag rolls;
+skip → SKIPPED status + tag in play; tempo gave 5/5 spins; cash-out itemization
+matched hand math ($8 doubled big reward + $4 unused + $4 interest = $16);
+boss collect paid Comp $8 and CAPPED interest at $5 (held $39, uncapped would be
+$7); ante advance reset statuses and re-rolled tags; lose path → Run Over with
+accurate stats, run cleared, seed prefilled; forced ante-8 boss (target shimmed
+via exposed blind ref) → "The House Is Yours" victory screen; overlay New Run
+starts a fresh run. Zero console errors. Template.html untouched (stays logic-free).
+
+Next session candidates: boss effects (universal roster §2.4 translated to the
+wheel), Croupier's Nudge, or the real shop (charms/Omens/Markers + reroll).
+
+=== Session 2026-06-11 (e) — shop + 20 charms in roulette-rouge.html ===
+Feature: the shop and the charm system (copied to outputs/). Charm engine: CHARMS
+registry of 20 definitions across all six archetypes (flat 3 / scaling 4 /
+conditional 3 / economy 4 / +mult 3 / xmult 3), hooks onEvent / onSpinEnd /
+onBlindBeaten / cashOutItem / interestCap; run.charms = [{id, state}] persisted.
+Scoring rewired: each event builds a {chips, mult} context; owned charms apply in
+STRICT left-to-right bar order (xMult before +mult differs from the reverse);
+event score = floor(chips x mult); breakdown shows post-charm values. Charm bar
+(5 slots) renders on table and shop with live scaling descriptions, ◀▶ reorder
+buttons, and Sell at ceil(cost/2). Shop: 2 item slots rolled from the seeded PRNG
+(no dupes of owned/stock), Buy with money + slot checks, reroll $5 +$1 per reroll
+resetting each shop visit (both slots refresh; Dust Collector scales on rerolls),
+stock persisted in the run save so mid-shop reloads can't re-roll. Cash-out now
+honors charm interestCap (VIP → $8) and charm payout lines (Pit Boss's Cut +$3);
+itemization snapshots at blind win, pays at collect (by design). Voucher/pack
+slots remain placeholders.
+
+Verified in preview on seed SHOP-1: registry = 20 covering all 6 archetypes;
+reroll 10→5 with label $5→$6, unaffordable reroll refused; buy Le Phénix $9 →
+bar 1/5 + SOLD slot; mid-shop reload resumed identical stock + reroll price;
+leaving cleared shop, next shop reset reroll to $5; left-to-right proven both
+ways ([stamp,phenix] → 91x15=1,365 vs [phenix,stamp] → 95x13=1,235, hand-matched);
+Bursar paid +$1 with "· +$1" readout; The Regular scaled +5/spin with live desc;
+boss cash-out listed Pit Boss's Cut $3 and interest at the VIP cap $8 (floor 11);
+Charms Full disabled buys at 5/5; sell paid ceil(4/2)=$2 and freed the slot.
+Zero console errors.
+
+Next session candidates: boss effects (§2.4), Croupier's Nudge, vouchers + packs,
+or pocket enhancements via Omens (the atomic-object modifiers).
+
+=== Session 2026-06-11 (f) — omens + boss effects in roulette-rouge.html ===
+Feature: consumables and bosses (copied to outputs/). OMENS: 10 cards, three power
+tiers (Minor 3 / Major 4 / Prime 3), 2 carry slots. Minor: Petty Marker (random
+rung +1), Pocket Money (+$5), La Mort Mineure (remove 1 pocket). Major: House
+Marker (chosen rung +1 via modal chooser), Le Rouge (flip pocket color), The
+Magnet (pocket 2x landing weight), Tempo Bottle (+2 spins this blind). Prime:
+Grand Ledger (all rungs +1), La Mort Majeure (remove 3), Le Zéro Doré (zéro 3x
+weight + Zéro rung +2). Three new engine layers: ladder levels (spec §3.1 Marker
+increments, leveled bases in rail + breakdown), weighted landing draw (removed=0,
+loaded x2, golden zéro x3 — still one PRNG draw/spin), dynamic pocket colors
+(rouge/noir bet coverage recomputes; board + wheel restyle via applyTableMods).
+Targeted omens aim by clicking number cells (zéro protected from removal; cancel
+allowed until first application). Shop's 2 slots now stock charms OR omens (~35%
+omens, seeded); buy honors the 2-slot omen cap; sell at ceil(cost/2).
+BOSSES: 10, rolled per ante (seeded), shown on the boss card and a table banner:
+Le Zéro Fatal (zéro coverage void + ball drawn to zéro 4x + zéro landing scores
+nothing), Velvet Rope (even-money/dozen events void), Madame Noir (colors hidden
+until landing), Manacle (4 tokens), Final Cut (-1 spin), Rake ($1/spin), Eye in
+the Sky (no repeat events per blind), Pit Boss (most-leveled rung banned, ties to
+highest), Counterfeiter (wheel mods suppressed), House Edge (base mult halved,
+min 1). Voids render as crimson lines (ROPED OFF / BANNED / SEEN / SEALED).
+
+Verified in preview (seed OMEN-1): tiers 3/4/3; deterministic boss roll shown on
+blind-select; instant/chooser omens (+$5; Straight Up lv2 = 120x9 in rail and in
+a real spin); targeting (magnet dot, mort removal, zéro untargetable, spin locked
+while aiming); weighted wheel (all-but-two pockets removed → landed one of them);
+recolor 20 noir→rouge grew ROUGE coverage to 19 incl. 20; all 10 bosses exercised
+(4-token cap, 3/3 spins, neutral cells, suppression of loaded/removed, ROPED OFF
+lines, SEEN — NO REPEATS on same-spin duplicate splits, halved mult 134x5,
+BANNED line + banner naming Straight Up, rake -$1, zerofatal: trio covering the
+landed 1 voided for touching zéro while a clean street scored). Shop stocked an
+omen first roll; bought into carry slots. Zero console errors.
+
+Note: under Le Zéro Fatal a zéro landing shows "house keeps" rather than a SEALED
+line because all zéro-covering bets are pre-filtered — the SEALED branch stays as
+a safety net.
+
+Next session candidates: vouchers + packs, Croupier's Nudge, audio assets, or
+second game (Blackjack Noir) to prove the template clones.
+
+=== Session 2026-06-11 (g) — hardening pass: 50-run simulation + fixes ===
+Feature: headless balance harness + the fixes it demanded (roulette-rouge.html,
+balance-report.md, spec.md §3.1 synced; all copied to outputs/).
+Refactor: scoring core made headless — isRouge/pocketWeight/drawPocket/eventBase/
+pickStock take explicit (run, boss); scoreSpin extracted from resolveSpin (full
+event/void/charm pipeline returning structured details; resolveSpin is now a thin
+DOM wrapper); buildCashout extracted from winBlind. RR.simulate(n) plays n seeded
+runs through the REAL core with a fixed mid-skill bot (rouge+noir floor + inside
+stack, greedy shop, omens on acquisition, no skips/rerolls), asserts invariants,
+restores rng state. 50 runs execute in ~10ms.
+
+Round 1 findings (before fixes): 0/50 wins, 48/50 dead at ANTE 1 — max coverage
+6/37 pockets meant ~49% of blinds scored literally 0 and outside play maxed ~60 vs
+target 300; pure variance, no skill floor. Plus bug: onSpinEnd got scored=
+events.length>0, so boss-voided spins counted as scored (Vendetta never grew,
+Bursar paid on nothing).
+
+Fixes: (1) scored = gain>0. (2) Ladder rebase — Even 5x1→45x2, Dozen 15x2→50x2,
+SixLine 20x2→55x3, Corner 30x3→65x3, Street 35x3→70x4, Split 50x4→85x5, Straight
+80x6→110x7, Zéro 110x8→140x9, Plein 160x12 stays. (3) Brass Inlay +8→+3 per
+covered number (outside-bet inflation). (4) Boss ante gates: Velvet Rope / Eye /
+House Edge minAnte 3, Final Cut minAnte 2 (floor-killers vs charmless players).
+(5) Scaling economy: +1 mult per level on every rung's level-up, House Marker
+levels twice, Petty Marker $3→$2, shop omen share 35%→40%.
+
+Round 5 (after): A1 Small/Big 100%/100%, deaths spread A1–A6 (16/10/6/8/8/2),
+median score/target ratios 1.1–1.45 through A5, zero invariant violations every
+round. Bot still 0/50 wins — hand-verified as bot policy, not balance: the
+all-outside line (rouge+noir+3 dozens) scores ~1,056/blind at A1 (boss target
+600), and ceiling math shows A8 reachable with straight levels + xmult charms +
+wheel thinning; the fixed bot pursues neither. Documented quirks: isFirst/isLast
+counted pre-void (Heat/Bust/Méchant lose riders to boss voids, thematic); SEALED
+line unreachable (pre-filtered); Bursar strong with the floor (monitor).
+Live game re-verified after every change: (110+2)x7=784 exact, ladder rail 45x2,
+ante-gated boss roll respected, zero console errors.
+
+Next session candidates: vouchers + packs (scaling supply the sim says late game
+wants), Croupier's Nudge, or Blackjack Noir on the template.
+
+=== Session 2026-06-12 — blackjack-noir.html (v0.1, full port + hardening) ===
+Feature: second game, proving the template clones (copied to outputs/ with
+balance-report.md). Ported the Roulette Rouge spine verbatim: PRNG/Store/Speed/
+Router/Run save layer (run saved under "run:bjn" so both games' saves coexist;
+settings shared), 8 antes x S/B/X with spec targets, skip tags (Comp/Tempo/
+High-Roller), $3/$4/$5 + $1/unused + interest, shop (2 seeded slots, reroll
+$5+$1, stock persisted), charm bar (5 slots, STRICT left-to-right, reorder/
+sell), omen engine (2 slots, instant/chooser/target), per-ante seeded boss,
+overlay end screens, mid-blind reload restarts the blind.
+Table layer: 52-card shoe IS the deck (pool of {id,r,s}; shoe = seeded shuffle
+of pool ids, reshuffles when empty excluding in-play cards). 4 hands + 3
+redeals per blind (redeal = discard opening two, redraw). Hit/Stand/Double
+(first action)/Split (once, equal value); dealer stands all 17s; 5-card
+no-bust = auto-win Charlie; dealt naturals auto-resolve; bust scores 0.
+Ladder (10 rungs): Push, Win Under 21, Dealer Bust, Twenty, Twenty-One,
+Double-Down Win, Natural, Five-Card Charlie, Split Sweep (add-on when both
+split hands win), Noir Blackjack (2-card 21 in spades/clubs). Each hand emits
+its highest rung; events resolve ascending; final-hand cards add chip values
+(faces 10, ace 11) to base chips before mult. 20 charms across flat/scaling/
+conditional/economy/xmult/utility incl. mandated six (Stakehorse +30 on wins,
+Grudge +1 mult/dealer bust, Teetotaler x3 no faces, Consolation $2/push,
+Vingt-et-Un x4 on 21, Inside Man hole revealed). 10 bosses: mandated five
+(Hard Seventeen, Veiled Dealer, House Edge pushes=losses, Faceless, Locksmith)
++ Anvil (-1 hand, A2+), Rake, Eye in the Sky (A3+), Marked Deck (aces=1, A2+),
+Pit Boss. 10 omens in 3 tiers; deck manipulation = La Mort burn (pool floor
+24), Le Teinturier re-suit to noir, Duplicator copy (cap 78), L'As Noir; card
+targeting via a modal pool grid (Cancel until first use, then Done).
+Hardening: BJ.simulate(50), 5 rounds, 0 invariant violations/crashes ever.
+R1: 32/50 dead at A1, all dead by A3. R2 found the real illness: VARIANCE
+(A1-S median 1.64 but pass 78%) — blackjack has no guaranteed event, so one
+plain win must clear A1-S alone. Final ladder Push 40x2 ... Win 120x4 ...
+Noir 240x12 with steepened level-ups; Petty Marker levels bottom-5 rungs only;
+House Marker $5; boss gates Eye A3+/Anvil+Marked A2+. R5: A1 98/96/89,
+A2 86/72/85, A3 86/68/54, deaths 8/20/15/6/1, 22/50 reach A3 (roulette
+benchmark 24/50). Ceiling hand-verified (Win lv8 ~9.4k/win pre-xmult; noir
+build ~132k/natural). Quirks documented: ~5% zero blinds, charlie chase
+EV-positive, Shoe Shiner late compounding, split 2-card 21 counts natural.
+Live-verified at the table (zero console errors): Noir Blackjack 261x12=3132
+exact; split sweep 592+592+2124 with dealer bust; double-down 181x6=1086;
+charlie 271x8 incl. Low Roller +60; charm order proven both ways (171x44 vs
+171x29); redeal counter + redealt natural; all 10 bosses exercised (soft-17
+hit to 19, veiled face-down upcard, push 116 vs House-Edge void, Faceless
+K+Q=700, marked A+K=11, rake $-1, anvil 3 hands, SEEN/BANNED lines); omens
+burn/dye/dupe/asnoir on the live pool+shoe; tags (skip -> Tempo 5 hands);
+interest $5 cap / vault $7; mid-blind reload -> blind-select with exact rng
+round-trip; run-over stats; ante-8 victory; DET-1 seed reproduces same deal.
+Not in scope (future): card enhancements/seals/editions (prompt 17 attaches
+to the pool's {id,r,s} objects), vouchers + packs, Croupier-style nudge
+analog, audio assets.
+
+=== Session 2026-06-12 (b) — craps-crimson.html (v0.1, full port + hardening) ===
+Feature: third game (copied to outputs/ with balance-report.md). Spine ported
+verbatim (run key "run:cc"; settings shared): PRNG/Store/Speed/Router/save,
+8 antes x S/B/X, tags (Tempo = +1 shooter turn), $3/$4/$5 + unused + interest,
+shop (2 slots, reroll $5+$1, persisted), 5-slot l-to-r charm bar, 2-slot omens,
+seeded boss/ante, overlays, mid-blind reload restarts.
+Table layer: atomic object = 12 die faces {id,die,idx,pips}; rolls pick one
+face per die (seeded), total = sum of CURRENT pips (re-pips warp distribution
+AND chip payload). 4 shooter turns + 3 re-rolls; throws land PENDING →
+Resolve / Re-roll (take-back before resolution; auto-resolve at 0 charges).
+Pass-line turn: come-out 7/11 Natural (stay), 2/3/12 Craps Out (zero, end),
+else point; point phase scores every roll, point → Made/Fast(roll 1)/Hard
+(doubles) chains to fresh come-out IN the turn, 7 → Seven-Out. 10-rung ladder
+Box→Horn→Hardway→Point Set→Natural→Made→Fast→Hard→Boxcars→Crimson Eyes
+(snake eyes in point phase, (150+2)x12); one event/roll, highest rung; pips
+add to chips. 20 charms (6 archetypes; mandated six incl. The Peek: die A
+revealed first, peek-stage re-roll redoes just that die). 10 bosses: mandated
+five (Cold Table ices all doubles events, Iron Point, Tax -$3, Marathon holds
+point 3 rolls, Cursed Pair doubles=out) + Rake, Pit Boss, Eye (A3+), Short
+Leash (A2+), Blind Cup (pending dice hidden — kills informed re-rolls). 10
+omens incl. face re-pips: Filer -1, Loader +1, Carver →1, Loaded Dice +1 x3,
+Les Yeux Rouges →1 + Crimson +2 (targeting modal shows both dice).
+Hardening: CC.simulate(50), 2 rounds, 0 invariant violations. R1: TOO EASY —
+4/50 bot WINS, deaths A4-A8, non-boss late blinds 94-100%, medians pinned
+~1.0. Root cause: unbounded turns make run-long scalers compound per-roll/
+per-point (dicelog ~+800 chips, grudge7 ~+100 mult by A8). Fixes: dicelog →
++4/turn completed (new onTurnEnd hook, both call sites), grudge7 +2→+1 (Hot
+Hand mandated, untouched); also TURN_ROLL_CAP=100 (degenerate re-pipped dice
+can make 7 impossible → infinite turn under Eye). R2: 1/50 wins, deaths
+3/7/7/8/10/10/4 (A2-A8), A1 100/100/100 (2/779 zero blinds), boss ramp 94%→
+25%; per-boss: Eye 0.38 nightmare, CursedPair/.73 ColdTable/.77 Marathon/.81
+BlindCup/.83, rest mild. Monitors: Grind money inflation (median $54 late),
+medians pin ~1.0 by stop-at-target design (pass rate is the dial).
+Live-verified (zero console errors): all 10 rungs exact incl. Crimson 1824,
+Fast 375, Hard Point 504 chaining "1 POINT CHAINED"; pending/re-roll/auto-
+resolve; all 10 bosses (ICED/IRONED FLAT/BANNED/SEEN lines, Tax $-3, Marathon
+HOLDS label roll 1-3 then Made roll 4, Cursed Pair out, Rake $1 once/turn,
+Blind Cup hides then reveals); charm order proven (65x56=3640 vs 65x26=1690);
+Grind point-phase-only +$1; Hot Hand live desc; Peek 3-stage flow; omens on
+faces incl. revert-to-original losing the modded marker; tags skip→Tempo 5
+turns; interest $5/$7-vault; mid-blind resume → blind-select w/ exact rng
+round-trip; run-over stats; ante-8 victory; DET-CC determinism. Known quirk:
+Run.start while already on blind-select skips lazy tag/face init (unreachable
+from real UI; found by the test harness).
+Not in scope (future): face enhancements/seals/editions (prompt 17), vouchers
++ packs, audio. Three games now share ~1100 lines of duplicated spine by
+design (single-file games) — consider extracting before game four.
+
+=== Session 2026-06-13 — bingo-baroque.html (v0.1, full port + hardening) ===
+Feature: fourth game (copied to outputs/ with balance-report.md). Spine ported
+verbatim (run key "run:bb"; settings shared across the suite): PRNG/Store/Speed/
+Router/save, 8 antes x S/B/X, tags (Tempo = +3 ball draws), $3/$4/$5 + $1/unused
+draw + interest, shop (2 slots, reroll $5+$1, persisted), 5-slot l-to-r charm
+bar, 2-slot omens, seeded per-ante boss, overlays, mid-blind reload restarts.
+Table layer: atomic object = 75 cage balls {id,n}. The card is dealt each blind
+FROM the pool's available numbers per column (B1-15/I16-30/N31-45/G46-60/O61-75,
+free centre), so culling a ball never strands a square — it only shrinks the draw
+denominator and COMPOUNDS the hit rate each blind (the "thinning feels strong"
+mandate; cull floor = 5/col keeps every column dealable). Cage = seeded shuffle of
+the pool (loaded balls front-loaded), drawn by popping like a shoe (popCage wraps
+mod len for over-draw safety). 24 draws + 4 tosses/blind (raised from the prompt's
+15/3 in hardening). Draw lands a ball PENDING -> Daub It or Toss (discard+redraw).
+11-rung ladder Daub/Three/Four/Line/Double Line/Four Corners/Postage Stamp/X/
+Frame/Blackout/The Chandelier (top row + both diagonals = secret jackpot). Lines
+track per-line daub counts (3->Three, 4->Four, 5->Line); patterns guard once per
+instance via blind.fired; one draw fires every newly-completed pattern (full-card
+final square = 6 patterns at once, ~69k unleveled). Each daubed cell adds its ball
+NUMBER as chips before base+mult (O column richest; free centre = 0). 20 charms,
+6 archetypes incl. mandated six (Dauber's Mark +20/Daub, Line Tally +1mult/Line,
+Centre Stage x3 N-column, Consolation $1/miss, Line Drive x4 Line, Foreteller
+peeks next ball). 10 bosses incl. mandated five (Locked Centre, Censor, Short Cage,
+Inquisitor, Gilded Cage) + Cracked Bell (no tosses), Pit Boss, House Edge, and the
+spec's two signature Bingo bosses: The Mute Caller (ball face-down till resolved)
+and Baroque Decay (erase a random daub before each draw). 10 omens, 3 tiers; deck
+manip = the cage: The Cull/La Grande Rafle (pull balls), The Hot Ball (load to
+front), The Free Space (free daub) via a 75-ball cage modal.
+Hardening: BB.simulate(50), 2 rounds, logs hit rate + daubs/blind. R1: a headless
+CRASH (colCount referenced Rouge.run.current; 35/50 runs that bought cull omens
+threw) AND the core illness -- at 15 draws the card never filled (3.4 daubs/blind),
+the pattern ladder was decorative, nothing passed A5. Fixes: colCount(col,run)
+param; draws 15->24 / tosses 3->4 (the card now fills, patterns cascade); bumped
+mid/late ladder level-ups + top pattern bases for A6-A8 scaling; popCage wraps for
+over-draw safety. R2: 1/50 wins, A1-A3 ~100%, deaths spread A2-A8 peaking at the
+A4-A5 boss wall (29/49), hit rate 0.46. Per-boss: Inquisitor 0.25 nightmare
+(deletes the Daub floor -> forces pattern play), Decay 0.57, CrackedBell 0.81,
+Gilded 0.83, Mute 0.88, rest 0.95-1.0. Monitors: A4-A5 valley, table-cull is a
+human edge the bot under-uses (sim is a conservative floor), medians pin ~1.0 by
+stop-at-target design.
+Live-verified (zero console errors): pattern progression exact (Daub (25+n)x2,
+Three (45+S3)x3=297, Four (60+S4)x3=483, Line (80+S5)x4=968); full-card fill fires
+all 11 rungs incl. a 6-pattern cascade on the last square; charm order proven both
+ways ((25+2)x18=486 vs x13=351); mandated charms exact (Centre Stage N x3 =336,
+Line Drive 113x16=1808, Consolation +$1, Foreteller peek+toss, Long Cage 27 draws/
+Spare Daubers 5 tosses); all 10 bosses (Locked centre blank, Censor CENSORED but
+the Line still scores 418x4 through the column, Short Cage 19 draws, Inquisitor
+SILENCED=0, Gilded -$1, Cracked Bell 0 tosses, Pit Boss BANNED, Mute hidden->
+revealed, Decay 6 draws->1 survives, House Edge (25+1)x1=26); omens (cull modal
++ floor enforcement, free space, tempo +3, hot ball loads to front, interest $5/
+$7-vault); tags (skip->Tempo 27 draws); win/cashout ($26 = $3 + 23 unused);
+mid-blind reload -> blind-select w/ exact rng round-trip; run-over stats; ante-8
+victory; clean New-Run determinism (same seed -> same card + call order).
+Not in scope (future): ball enhancements/seals/editions (prompt 17 attaches to the
+{id,n} ball objects), vouchers + packs, audio. FOUR games now share ~1100 lines of
+duplicated spine by design (single-file games) -- the extraction flagged after
+game two/three is now overdue; strongly consider it before game five.
+
+=== Session 2026-06-13 (b) — extract rouge-spine.js (de-duplicate the runtime) ===
+Refactor (no gameplay change): the four games each carried a byte-identical copy
+of the ~245-line Rouge runtime IIFE (PRNG mulberry32, versioned localStorage
+Store, AudioMgr stub, Settings, Speed, Router, Run lifecycle, boot). Diffed all
+four: the ONLY differences were the save key, the initial run-state object, and
+the audio sound list (roulette also used the "run" literal where the others used
+this.KEY). Extracted the runtime to rouge-spine.js (263 lines, classic script
+defining window.Rouge), loaded by each game via <script src="rouge-spine.js">
+before its inline <script>. Parameterized Run: Run.configure({key, createState})
+called at parse time in each game (after window.XX=XX) plugs in the save key +
+a (seed)=>state factory; boot() now registers the UNION of all games' sound
+names so AudioMgr never warns on a sibling's name. createState sets the atomic
+field to null/[] (cards/faces/balls) — ensureRunShape already lazily builds it,
+so the factories need no module functions and the start state is byte-identical
+to each game's old inline start(). CSS left inline: it diverges between roulette
+(oldest) and the later three, so a shared stylesheet would risk visual drift for
+low value; the runtime was the real sync-drift liability (a save-layer fix would
+have needed replicating 4x).
+Net: ~245 dup lines x4 removed, replaced by one 263-line file + ~11 lines of
+config per game. Games now ~1846/2025/1864/1918 lines (were ~2081/2262/2101/
+2155). All copied to outputs/ incl. rouge-spine.js.
+Verified live in preview (zero console errors on every game): each game loads
+window.Rouge from the spine, KEY correct (run / run:bjn / run:cc / run:bb),
+createState a function; sim still runs through the shared PRNG with 0 bugs
+(RR/BJ/CC/BB.simulate(20) each); live table actions work (roulette spin landed+
+resolved; blackjack deal 2 cards shoe 48; craps Natural 52x3=156 exact; bingo
+daub 28x2=56 exact); determinism holds per game (same seed -> same first
+draw/card); persistence round-trips under each key (table->blind-select restart,
+rng state saved); the four saves + settings COEXIST independently in one
+namespace (verified round-trip of all five keys); inline CSS still applies
+(panel border = gold-leaf rgb(201,162,75)). Screenshot tool timed out (flaky,
+as before) — structural snapshot confirmed the table renders. template.html
+untouched (still the logic-free skeleton).
+Next: the per-game render/shop/charm functions are still duplicated-but-coupled
+(they call game-specific renderX / reference game ladders) — a bigger shared-
+engine refactor, deferred. Game five (Slot Syndicate / Darts / Domino / Mahjong)
+should now clone rouge-spine.js + the template, not a sibling's full runtime.
+
+=== Session 2026-06-14 — darts-and-deals.html (v0.1, full port + hardening) ===
+Feature: FIFTH game, and the first built on the extracted rouge-spine.js (loaded
+via <script src>, Rouge.run.configure({key:"run:dd", createState}) — no copied
+runtime). Copied to outputs/ with balance-report.md + rouge-spine.js.
+Table layer: atomic object = the Bed (20 wedges × single/double/triple + 2 bulls
+= 62). Board renders as a clickable SVG dartboard (annular sectors, real clockface
+order 20,1,18,4,...,5; gold/crimson deco rings). Board-editing IS the deck-building:
+run.wedges (renumber to 20), run.wide (per-bed accuracy), run.accBonus. Aim a bed →
+base 60% accuracy hits, else seeded drift to adjacent wedge (same ring) or adjacent
+ring (same wedge); bulls scatter out. The Visit = 3 darts (the hand); 4 visits + 3
+re-throws/blind; a dart lands PENDING → Keep, or Re-throw (re-roll the scatter — the
+discard analog). Visit scores its single BEST (highest-rung) event. 10-rung ladder
+Open/Pair/Three-of-a-Kind/Ton/Bull/Shanghai/Ton-Forty/Hat Trick/One-Eighty/Three-in-
+a-Bed (the last three read DISJOINT so all stay live: 180→One-Eighty, 3 bulls→Hat
+Trick, other identical-bed trio→the secret Three in a Bed). Each dart's landed value
+(wedge×ring) adds to chips before base+mult. 20 charms/6 archetypes incl. mandated
+six (Wireworker +25/triple, Ton Counter +1mult/Ton, Double Top ×2 w/ double, Bookie
+$2/pair, Maximiser ×3 on 100+, Steady Leadoff first-dart-no-drift). 10 bosses incl.
+mandated five (Wobble accuracy halved, Closed Ring triples=0, Short Visit 2 darts,
+Crooked Wire drifted=0, Repo Man wedge-twice voids combo) + Dead Bull, Entry Fee,
+Pit Boss, Eye, House Edge. 10 omens incl. board edits: The Reamer (widen +20% acc),
+Engraver/Cartograph (renumber wedges to 20), Calibrate (+8% acc run-long), via a
+board modal.
+Hardening: BD.simulate(50), EV bot (bestAimFor → highest-EV bed, re-throws landings
+<70% of hit value), logs hit rate / avg visit total / event frequency. R1 (ACC_MAX
+.97, fat mults): 13/50 WINS, A1 median 8.3×, ladder COLLAPSED (oneeighty 1103 vs
+≤125 others) — high accuracy made 180s automatic. Fixes (the 3 levers named): base
+acc stays 60% but CEILING .97→.82 (180s need luck), mults cut hard (One-Eighty ×8→
+×4 etc., bases −25%) so dart values carry the floor + Marker/charm mult carries the
+333× curve, visit count left at 4. R2: 4/50 wins, A1-A4 ~100%, deaths A2-A8 (peak
+A5/A8), A8-X 31%, hitRate .745, avgVisitTotal 170, oneeighty still 74% (EV bot
+fixates T20 = realistic). The diversity-forcing bosses are the walls: Short Visit
+.61, Repo Man .69, Wobble .71, Eye .79 — exactly the ones that break the T20 cluster.
+0 invariant violations / 0 crashes both rounds.
+Live-verified (zero console errors): SVG board 62 beds + 20 numbers; ALL 10 events
+exact (One-Eighty 255×4=1020, Three-in-a-Bed(T19) 261×5=1305, Shanghai 168×3=504,
+Ton-Forty 212×3=636, Hat Trick 220×4=880, Bull 126×2=252, Ton 155×2=310, Pair 59,
+Open 51); best=highest-rung resolves (T20/T20/D20→Ton-Forty); accuracy/drift (miss→
+drift, ring-drift triple→single), Steady Leadoff (no first-dart drift), acc display
+60→70→78%; charm order proven (255×21=5355 vs 255×16=4080), Wireworker/Maximiser/
+Double Top/Bookie/Ton Counter exact; all 10 bosses (wobble 30% acc, shortvisit 2
+darts, closedring/deadbull value 0, repoman combo void→Open, houseedge mult halved,
+crookedwire drifted chips 0, entryfee $1, pitboss ban, eye 2nd 180→Ton-Forty);
+omens (Reamer .60→.80, Engraver/Cartograph renumber to 20, Calibrate 68%, interest
+$5/$7-suite); tags (skip→Tempo 5 visits); mid-blind reload→blind-select exact rng
+round-trip; victory; run-over stats; determinism (same seed→same state, differs by
+seed). Screenshot rendered the deco board cleanly.
+Spine refactor validated in anger: building game five on rouge-spine.js was a clean
+clone (configure + game module only), no runtime duplication. Not in scope (future):
+bed enhancements/seals/editions (prompt 17 attaches to the bed objects), vouchers +
+packs, audio. Five games now share the one spine; the per-game render/shop/charm
+functions remain duplicated-but-coupled (deferred shared-engine refactor).
+
+=== Session 2026-06-15 — domino-dynasty.html (v0.1, full port + hardening) ===
+Feature: SIXTH game, built on rouge-spine.js (Rouge.run.configure({key:"run:dom",
+createState}); no copied runtime). Copied to outputs/. The most mechanically
+complex table layer yet.
+Table layer: All-Fives (Muggins) on a double-six set. Atomic object = the 28 bones
+(run.bones {id,a,b}; run.loaded hand-weighting). The line is a STYLIZED model: a
+list of open-end pip values + a spinner flag. Place a tile matching an open end;
+the first double opens the spinner immediately to 4 ends of its pip (Heavy Hand →
+1, no arms); later doubles continue the line. Board sum a multiple of 5 drives the
+fives. Deal 7, 21 in the boneyard; 12 placements + 3 swaps/blind; forced draws when
+stuck are free; go-out REFILLS the hand (line persists) so Domino/Dynasty recur and
+the 12-placement budget is the real limiter. Each placed tile's pips add to base
+chips. 10-rung ladder Open/Nickel/Doublet/Dime/Spinner Set/Fifteen/Twenty/Chain of
+Five/Domino/The Dynasty; best = highest qualifying rung; charms read placement FACTS
+(sum/double/ends-even/hand-empty) so fact-keyed charms fire regardless of named rung.
+Interpretations documented: "turn"=per-placement (Chain=3 consecutive scoring
+placements; Toll Road taxes every placement after the blind's first). 20 charms/6
+archetypes incl. mandated six (Heavyweight +30 Doublet, Dynasty Builder +1 mult/
+go-out, Even House ×3 all-ends-even, The Counter $1/multiple-of-5, The Spread ×4 on
+Twenty, The Peeker reveal yard top). 10 bosses incl. mandated five (Blank Wall blank
+tiles=0 chips, Heavy Hand no spinner arms, Sealed Yard no swaps, Counting House
+go-out=0, Toll Road $1/placement) + Pit Boss, Eye, House Edge, Short Count, Doubler's
+Bane. 10 omens incl. bone edits: The Whittler/La Grande Rafle (remove), The Loaded
+Bone (hand-weight), The Forger (duplicate), via a bones modal.
+Hardening: DOM.simulate(50), greedy bot (previews legal plays, ranks go-out>fives>
+doublet>open, swaps dead weight, draws stuck), logs event freq/pips/go-out rate.
+RARE for the suite: round 1 HELD — 0 bugs, 0 crashes, healthy curve, no rebase
+needed. 2/50 wins, deaths A2-A8 (peak A3/A5), A6 boss the crunch (A6-X 0.44),
+survivors recover A7-A8. The All-Fives scoring DIVERSIFIES the ladder by
+construction: all 10 rungs see real use (open 1541, nickel/spinner 419, twenty 352,
+dime 310, fifteen 300, doublet 257, domino 139, chain 29, dynasty 5). pips/blind 42,
+go-out rate 0.23, places/blind 5.9 (12 budget not binding). Per-boss clean gradient,
+one nightmare: Eye 0.29 (no-repeat, gated A3), Counting House 0.71, rest 0.83-0.96.
+The 12-placement count and base values validated by the data without changes.
+Live-verified (zero console errors): ALL 10 events exact via direct scorePlacement
+(Nickel 54, Dime 90, Fifteen 195, Twenty 360, Doublet 68, Spinner 153, Open 17,
+Chain 525, Domino 738, Dynasty 1530); layout engine (first non-double [a,b], first
+double→4 arms, Heavy Hand→1 arm, spinner-mid [3,2,2,2], legality); best=highest-rung
+(Twenty>Doublet, Spinner>Doublet, Chain>five, Dynasty>Domino>Twenty); charm order
+(90×21=1890 vs 90×16=1440), mandated charms exact (Heavyweight 128, Even House ×6,
+Spread ×16, Counter +$1, Dynasty Builder scaling); all bosses (Blank Wall pip 0,
+Doubler's Bane/Counting House/Pit Boss/Eye void→fallback, House Edge mult halved);
+omens (Whittler 28→27, Loaded Bone, Forger 27→28, Idle Hand +2); swap (3→2, hand
+changed); full-blind play (12 placements, 1 go-out + refill, forced draws); tags
+(skip→Tempo 14 placements); interest $5/$7-vault; mid-blind reload→blind-select
+exact rng round-trip; victory; run-over stats; determinism. Screenshot: deco line of
+pip-dot dominoes, spinner opened to 4 ends "6 6 6 1 SUM 19", forced-draw message.
+Six games now share the one spine. Next (Mahjong Méchant = game 7, the last):
+clone rouge-spine.js + template. The per-game render/shop/charm functions remain
+duplicated-but-coupled (deferred shared-engine refactor still open).
+
+=== Session 2026-06-15 (b) — mahjong-mechant.html (v0.1, full port + hardening) ===
+Feature: SEVENTH game, on rouge-spine.js (Rouge.run.configure({key:"run:mah",
+createState})). The most logic-heavy table layer in the suite. Copied to outputs/.
+Spec game 3 (Slot Syndicate) is now the only one of the eight not yet built.
+Table layer: solitaire Riichi on a 136-tile wall (34 kinds × 4; man/pin/sou 1-9 +
+4 winds + 3 dragons). Atomic object = the wall tiles (run.tiles[34] counts + loaded
+draw-weighting); omens thin/weight/add — the deepest deck-thinning in the suite.
+Deal 13, draw+discard toward 4 sets + a pair; a complete hand scores only with a
+yaku. 4 hands + 3 redraws (redraw = ditch the opening 13, deal fresh) + up to 40
+draws/hand (raised from 18); bust=0. Full MAHJONG ENGINE: decomposeAll (enumerates
+every 4-sets-1-pair parse), isKokushi (Thirteen Orphans), yakuOfDecomp (10 yaku),
+evalHand (best-scoring legal parse), greedy shanten for the bot. YAKU STACK (add
+chips+mult, unlike best-event tables); tiles contribute value as chips before the
+yaku bonus. Riichi = auto floor-yaku on any ready win (documented reading). 10-rung
+ladder Riichi/Tanyao/Yakuhai/Pinfu/Sanshoku/Ittsu/Toitoi/Honitsu/Chinitsu/Thirteen
+Orphans. 20 charms/6 archetypes incl. mandated six (Bamboo Broker +40/chi, The
+Sensei +1mult/yaku, Simple Soul ×3 no honors, The Parlor $1/Riichi, The Flush ×4
+flush, The Oracle reveal next tile). 10 bosses incl. mandated five (Dead Wall -5
+draws, Censor a suit=0 chips, Sealed Wall no redraws, Purist needs 2 yaku, Closed
+Gate no pon/kan) + Pit Boss, Short Hand, Stickler (riichi void), Eye, House Edge.
+10 omens incl. wall edits: The Sweep/La Grande Purge (remove), The Magnet (load),
+The Smith (add), via a 34-kind wall modal.
+Hardening: MAH.simulate(50), tenpai-seeking bot, logs yaku freq/completions/bust
+rate. R1 (18 draws, prompt bases): 82% BUST, 0.64 completions/blind, 48/50 dead at
+A1 — solitaire concealed (draw-only, no calls) completes far slower than table play,
+and riichi-only (~81) can't clear 300. Fixes (the 3 levers): draws/hand 18→28→40 (a
+CAP; bust 0.82→0.58→0.34 = ~66% completion), bases raised ~80% (riichi+tanyao now
+~620 clears A1; chinitsu 190×8), hand count left at 4. R3: 0 wins, A1 98/98/92,
+deaths spread A1-A7 (6/15/10/11/4/2/2) peak A2-A4, bust 0.34, 1.42 completions/blind.
+Per-boss gradient: Purist 0.60 (2 yaku), Closed Gate 0.65, Short Hand 0.73, Dead
+Wall 0.79, rest 0.82-0.93. Yaku variety real (riichi 583/tanyao 239/pinfu 213/
+yakuhai 48/honitsu 5/...). 0 wins = bot doesn't chase flushes for A8 (human wall-
+thinning to one suit builds Chinitsu ~50-60k/hand, the apex line the greedy bot
+ignores, like every sibling's bot). 0 invariant violations / 0 crashes all rounds.
+Live-verified (zero console errors): the ENGINE exact on hand-crafted hands —
+riichi+pinfu+ittsu, sanshoku stacking 4 yaku, toitoi, chinitsu (no pinfu w/ a pon),
+kokushi yakuman, yakuhai, NO-WIN on incomplete; scoring exact (pinfu+ittsu 261×9=
+2349, chinitsu+Flush 282×44=12408); charm order (191×24 vs 191×19 on old bases →
+261-based after rebase), Bamboo/SimpleSoul; all bosses (Stickler/Purist void
+riichi-only, Pit Boss bans ittsu, House Edge halves mult, Censor zeroes a suit, Eye
+removes scored yaku); live flow (rigged pinfu: deal 13→draw 14th→declare riichi+
+pinfu+ittsu=2349); redraw, bust, blind-win banner, sweep wall-modal (136→135);
+tags (skip→Tempo 5 hands); interest $5/$7-vault; mid-hand reload→blind-select exact
+rng round-trip; victory; run-over stats; determinism. Screenshot: 14 tiles with
+suit-colored pips + honor glyphs, "4 AWAY" shanten, full 10-yaku ladder.
+Seven of the eight games now share rouge-spine.js. Remaining: Slot Syndicate (spec
+§3.3). The per-game render/shop/charm functions remain duplicated-but-coupled
+(deferred shared-engine refactor still the one open piece of tech debt).
+
+=== Session 2026-06-16 — slot-syndicate.html (v0.1, full port + hardening) ===
+Feature: EIGHTH and FINAL game — the suite is complete. Built on rouge-spine.js
+(Rouge.run.configure({key:"run:slot", createState}); no copied runtime). Copied to
+outputs/ with balance-report.md + rouge-spine.js. The prompt's TABLE RULES supersede
+the older spec §3.3 (3-reel, best-event) with a 5×3 stacking machine + 10-rung ladder.
+Spine ported verbatim: PRNG/Store/Speed/Router/save, 8 antes x S/B/X with §2.3 targets,
+tags (Tempo = +1 spin), $3/$4/$5 + $1/unused-spin + interest, shop (2 seeded slots,
+reroll $5+$1, persisted), 5-slot l-to-r charm bar, 2-slot omens, seeded per-ante boss,
+overlays, mid-blind reload restarts.
+Table layer: a 5x3 video slot. Atomic object = the reel Symbols on the strips
+(run.reels = 5 ordered strips = the deck; omens add/remove/reclass/weight symbols on a
+chosen reel — strip-editing IS the deck-building). 10 symbol classes: 4 low
+(Cherry/Lemon/Plum/Bell 2-5) + 4 high (Bar/Seven/Diamond/Crown 8-20, Crown=top) + Wild
+(substitutes) + Scatter (pays from anywhere). 5 fixed paylines (3 rows + V + caret)
+scored left-to-right; a spin stops all reels and ALL wins STACK (every winning line +
+the scatter combo + the jackpot resolve ascending and sum, charms hook PER EVENT
+roulette-style). Each symbol on a scoring line adds its chip value before the combo
+base. 12 spins + 3 respins/blind (respin = hold-and-respin, the discard analog; jammed
+reels can't be held/respun). The Mechanic's Thumb charm adds a free ±1 reel nudge.
+10-rung ladder Low Triple/High Triple/Wild Line/Quad/Scatter Pay/Quintet/Wild Quintet/
+Crown Line/Scatter Storm/The Jackpot (all 15 one symbol = the secret hand, fires on
+top of the five Crown Lines a uniform grid also makes). KEY READING: triples are
+TIER-matched ("three low/high symbols"), Quad/Quintet are CLASS-matched ("four/five of
+a kind") — split per payline into a class run + a tier run (lineRuns). 20 charms/6
+archetypes incl. mandated six (The Fruit Stand +30/Triple, The Collector +1mult/
+five-of-a-kind, Cold Streak x3 no low symbols, The Skim $1/scatter landed, The Cartel
+x4 five-of-a-kind, The Mechanic's Thumb nudge). 10 bosses incl. mandated five (Cold
+Reel, Jammed Reel, Voided Wild, Skimmer, Short Spin) + The Mechanic (middle line only),
+Pit Boss, The Velvet Rope (no plain triples), Eye, House Edge. 10 omens, 3 tiers; deck
+manip = the strips: Scrapper/La Grande Casse (pull copies), The Smith (forge a copy =
+weighting), The Wildmaker (reclass a symbol to Wild), via a 5-strip x symbol-count modal.
+Hardening: SLOT.simulate(50), the prompt's bot (rolls, then holds the reels feeding its
+best potential line and respins the rest while respins remain; greedy nudge with the
+Thumb), logs line-hit frequency / scoring-spins-per-spin / payout-per-blind vs target.
+R1: 0/50 wins, 42/50 dead at A1, scoring spins/spin 0.225 (77.5% DEAD spins). Root cause
+was a LOGIC bug not a number — I'd coded triples as class-matched; the prompt's "three
+low/high symbols" is a TIER match (the floor). Fix (lineRuns class-run + tier-run):
+0.225 -> 0.732. Two boss redefinitions: Velvet Rope "rung 4+" was a 0.00 brick (deletes
+the whole triple floor) -> "no plain triples, Wild Lines+ still pay" 0.00 -> 0.33; Eye
+strict per-blind dedupe double-punished the stack identity (0.19) -> blocks repeats only
+across spins (one spin's stack scores in full) 0.19 -> 0.27. R3: 0 bugs/0 crashes,
+scoring 0.732, deaths peak A4-A5, reach 43/50 A3 + 34/50 A4 (deeper than roulette 24 /
+mahjong 22 to A3 — the tier-triple floor is reliable so runs live/die on bosses). A1
+1.00/1.00/0.98 medians 1.39-1.51 (beatable plain play, as mandated). Walls: Mechanic
+0.20, Eye 0.27, Velvet Rope 0.33; House Edge 0.83; rest 0.90-0.96. Line hits: lowtriple
+2759 / wildline 1107 / hightriple 302 / quad 179 / wildquintet 157 / quintet 88 /
+scatterpay 83 / crownline 2 / scatterstorm 1 / jackpot 0 (apex = the human deckbuild path
+the bot ignores, hence 0/50 like every sibling). Bases + 22-symbol strips + 12-spin/
+3-respin budget HELD after the logic fix — no numeric rebase needed.
+Live-verified (zero console warnings/errors): ALL 10 rungs exact via scoreSpin
+(lowtriple 25, hightriple 128, wildline 100, quad 354, quintet 850, wildquintet 1128,
+crownline 2240, scatterpay 219, scatterstorm 2300; all-crown grid = 5x crownline 2240 +
+jackpot 12600 = 23800 STACKED); charm order proven both ways (wildline 525 vs 400 from
+wildheart/polish); mandated charms (Cartel x4 quintet 3400, Fruit Stand +30 triple 55);
+all six testable boss warps (House Edge halves mult 64, Pit Boss/Voided Wild/Skimmer/
+Velvet Rope void to 0, Velvet Rope keeps wild line 100, Mechanic 71->0 middle-only);
+live flow (start->blind->spin->pending->score->win banner; cashout $3+$11 unused=$18;
+collect->shop 2 slots); live omen (Scrapper pulled a Cherry off reel 0, 22->21, omen
+consumed, modal closed); determinism (same seed -> identical first grid). The spine
+clone was clean (configure + game module only). Not in scope (future): symbol
+enhancements/seals/editions (prompt 17 attaches to the reel-strip symbols), vouchers
+(Fourth/Fifth Reel) + packs, audio. ALL EIGHT games now share the one rouge-spine.js;
+Slot Syndicate was the last unbuilt game in spec §3. The per-game render/shop/charm
+functions remain duplicated-but-coupled (the deferred shared-engine refactor is still
+the one open piece of tech debt across the finished suite).
+
+=== Session 2026-06-16 (b) — extract rouge-engine.js (de-duplicate the UI/economy layer) ===
+Refactor (NO gameplay change): the eight games each carried a duplicated-but-coupled
+copy of the shop / charm bar / omen bar / ladder readout / blind-select / cash-out
+layer — ~250 lines apiece that differed only by each game's registries, its play-unit
+wording, and a few hooks. Extracted that layer to rouge-engine.js (289 lines, classic
+script defining window.RougeUI), loaded by each game via <script src> after rouge-spine.js
+and before its inline <script>. This is the second extraction (the runtime spine came out
+in 2026-06-13b); together they leave each game module owning ONLY its atomic-object
+surface (table + scoring + sim, ensureRunShape, renderRail, the omen targeting modal,
+canUseOmen/useOmen/consumeOmen/openChooser, endRun).
+Engine owns 16 functions: renderCharms/sellCharm/moveCharm, renderOmens/sellOmen,
+pickStock/rollShop/rerollShop/buyStock/renderShop, renderLadder, renderBlindSelect/
+skipBlind, buildCashout/winBlind/cashOut. Each game calls RougeUI.configure({...}) once at
+parse time inside its IIFE (where its registries + callbacks are in scope) and keeps 16
+thin one-line delegators so every call site and the exported API stay stable.
+Contract (cfg): registries CHARMS/OMENS/LADDER/TAGS/BOSSES/TIER_NAMES; counts CHARM_SLOTS/
+OMEN_SLOTS/TARGETS/REWARDS/BLIND_NAMES/INTEREST_STEP/INTEREST_CAP/omenShare; helpers
+sellValue/omenSellValue/newCharm/bossPool; wording playField+playWord (the unused-play
+cashout line) + ladderLabel; callbacks ensureRunShape/renderRail/startBlind/canUseOmen/
+useOmen/onVictory/getBlind/isLocked. Divergences absorbed by the contract: play-unit
+wording (spins/hands/draws/visits/placements; craps computes unusedTurns??turnsLeft via an
+unusedPlays hook), ladder label (mahjong "Yaku", rest "Ladder"), the sell/move lock
+(roulette spinning||targeting, rest targeting), and roulette's Dust Collector — its inline
+rerollShop logic became a generic onReroll charm hook the engine fires (dust gains
+onReroll: i=>{i.state.r++}).
+Method: the 16 functions are byte-near-identical across games, so after migrating slot by
+hand (proof), a one-off .claude/migrate.py removed each function (match `^  function NAME`,
+delete through the next `^  }`, one-liner-aware) and inserted the delegators + a per-game
+configure before the module's `  return {`. Ran on the other 7; each removed 16/16 cleanly.
+Caught a self-inflicted engine bug first: a header comment contained "render*/shop" whose
+`*/` closed the block comment early ("Unexpected identifier 'calls'") — fixed.
+Verification — the gold standard was sim PARITY: every game's simulate(50) is byte-for-byte
+identical to its pre-refactor baseline (the sim runs the real buildCashout + pickStock
+through the engine), so the move provably changed nothing. Captured baselines first, then
+confirmed after: SLOT 0bugs/0wins ante{1:1,2:6,3:9,4:15,5:11,6:5,7:3}; MAH 0/0
+ante{1:6,2:15,3:10,4:11,5:4,6:2,7:2} bust .339; RR 0/0 {1:16,2:10,3:6,4:8,5:8,6:2}; BJ 0/0
+{1:8,2:20,3:15,4:6,5:1}; CC 0/1 {2:3,3:7,4:7,5:8,6:10,7:10,8:4,9:1}; BB 0/1
+{2:1,3:6,4:13,5:16,6:4,7:5,8:4,9:1}; BD 0/4 {2:4,3:3,4:6,5:11,6:3,7:8,8:11,9:4}; DOM 0/2
+{2:5,3:12,4:7,5:12,6:10,7:1,8:1,9:2} — ALL PARITY:true. Live-verified the engine DOM paths
+the sim doesn't touch (zero console warnings on every game): blind-select renders 3 cards +
+boss desc; shop rolls 2 stock; buyStock/sellCharm (+refund) / rerollShop (stock changes);
+win banner -> Collect -> shop with itemized cashout ($3 reward + unused-play $); ladder
+label correct ("Yaku" on mahjong, "Ladder" elsewhere); roulette's Dust Collector onReroll
+ticks 0->1 on a live reroll (the one hook the no-reroll bot never exercises).
+Net: ~250 dup lines x8 collapsed into one 289-line engine + ~36 lines (16 delegators +
+configure) per game; games now 1423-1717 lines (were ~1640-2025). CSS stays inline per game
+(it diverges between the oldest game and the rest; a shared stylesheet would risk visual
+drift for low value — same call as the spine extraction). Everything copied to outputs/
+incl. rouge-engine.js. The per-game render/shop/charm "duplicated-but-coupled" tech debt
+flagged since game two is now CLOSED; the suite shares two files (spine + engine) and each
+game is just its table layer + module config. template.html untouched (still logic-free).
+
+=== Session 2026-06-16 (c) — index.html (the casino lobby / home screen) ===
+Feature: a home screen to launch any of the eight games (copied to outputs/). The games
+are standalone pages sharing rouge-spine.js + rouge-engine.js; the lobby just links to
+each <game>.html, so browser-back already returns here and no game logic is touched.
+index.html (art-deco tokens reused from spec §4): a responsive grid of 8 game cards, each
+a clickable <a> (double-rule gold panel, hover lift + champagne glow) showing a roman
+numeral, the title with the second word in lipstick (matching each game's menu), the
+atomic-object chip (Pocket/Card/Symbol/Die Face/Cell/Dart/Bone/Tile), the spec's one-line
+identity, and a live status badge. A small inline script reads each game's save straight
+from localStorage ("rouge-casino:<key>", envelope {v,data}; keys run / run:bjn / run:slot /
+run:cc / run:bb / run:dd / run:dom / run:mah — roulette's is the bare "run") and shows
+"Resume · Ante n/8 · $m" when a run exists, else "New Run"; the footer tallies runs in
+progress. No spine dependency — the lobby reads the raw save envelope itself, so it stays a
+zero-logic launcher.
+Also made the casino a real navigation loop: added a uniform "⌂ Lobby" button to every
+game's HUD .controls (the markup is byte-identical across all 8, so one literal insertion
+each via a guarded script; it's a plain <button onclick="location.href='index.html'"> that
+inherits the existing control-button styling — no new CSS, no spine coupling). The spine's
+document click handler doesn't preventDefault, so the onclick still navigates.
+Live-verified (zero console warnings): lobby renders all 8 cards with correct hrefs/titles/
+objects/identity lines; injected saves for slot (Ante 3 $27) and craps (Ante 6 $41) showed
+the exact resume badges and "2 runs in progress", a save-less game stayed "New Run"
+(injected saves cleaned up after); each game's HUD shows "⌂ Lobby" with onclick
+location.href='index.html'; clicking it round-trips game -> /index.html with 8 cards. All 9
+files (lobby + 8 games) copied to outputs/ byte-identical. Not in scope: a cross-game Grand
+Tour, per-game cover art, clearing saves from the lobby — the spec's deferred questions.

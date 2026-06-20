@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — lobby (design tokens from spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+  --dur-fast: .15s;
+  --dur-med:  .30s;
+}
+
+* { box-sizing: border-box; margin: 0; }
+html, body { min-height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .tagline { font-style: italic; color: var(--smoke); font-size: .82rem; }
+
+main { flex: 1; padding: var(--space-4); display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+
+.title-block { position: relative; text-align: center; padding: var(--space-3) var(--space-4) var(--space-2); }
+.title-block::before {
+  content: "";
+  position: absolute;
+  inset: -1.5rem -2rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+.title-block h1 { font-weight: 900; font-size: clamp(2rem, 5.5vw, 3.4rem); position: relative; }
+.title-block h1 .rouge { color: var(--lipstick); }
+.title-block .flavor { font-style: italic; color: var(--smoke); margin-top: var(--space-1); position: relative; }
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 1120px;
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-decoration: none;
+  color: var(--ivory);
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+  min-height: 178px;
+  overflow: hidden;
+  transition: transform var(--dur-fast), box-shadow var(--dur-med);
+}
+.game-card:hover, .game-card:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px var(--gold-leaf), 0 8px 22px rgba(0, 0, 0, .55);
+  outline: none;
+}
+.game-card .numeral {
+  position: absolute;
+  top: .5rem; right: .8rem;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.55rem;
+  letter-spacing: .06em;
+  color: rgba(201, 162, 75, .28);
+}
+.game-card h2 {
+  font-size: 1.18rem;
+  line-height: 1.15;
+  color: var(--gold-leaf);
+  margin-right: 2.4rem;
+}
+.game-card h2 .accent { color: var(--lipstick); }
+.game-card .object {
+  align-self: flex-start;
+  font-family: var(--font-display);
+  font-size: .56rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  border: 1px solid rgba(201, 162, 75, .55);
+  border-radius: var(--radius);
+  padding: .12rem .45rem;
+  margin: .15rem 0 .1rem;
+}
+.game-card .line { font-style: italic; color: var(--ivory); font-size: .94rem; flex: 1; }
+.game-card .status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid rgba(201, 162, 75, .3);
+}
+.game-card .badge {
+  font-family: var(--font-display);
+  font-size: .62rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--smoke);
+}
+.game-card .badge.resume { color: var(--champagne); }
+.game-card .badge.resume b { color: var(--lipstick); }
+.game-card .enter {
+  font-family: var(--font-display);
+  font-size: .66rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+.game-card:hover .enter { color: var(--champagne); }
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+footer a { color: var(--smoke); }
+</style>
+</head>
+<body>
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO</div>
+  <div class="tagline">The house is you.</div>
+</header>
+
+<main>
+  <div class="title-block">
+    <h1>The <span class="rouge">Rouge</span> Casino</h1>
+    <p class="flavor">Eight games. One house. Pick your table.</p>
+  </div>
+  <div class="divider">&#9670;&#9670;&#9670;</div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>
+  <span>index.html &middot; lobby</span>
+  <span id="save-note"></span>
+</footer>
+
+<script>
+"use strict";
+/* The eight games are standalone pages sharing rouge-spine.js + rouge-engine.js.
+   The lobby just launches them and reads each game's save (namespaced under
+   "rouge-casino:<key>", envelope { v, data }) to show a resume badge. */
+const NS = "rouge-casino:";
+const NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+const GAMES = [
+  { file: "roulette-rouge.html", key: "run",      title: ["Roulette", "Rouge"],    object: "Pocket",   line: "Bet the wheel you built" },
+  { file: "blackjack-noir.html", key: "run:bjn",  title: ["Blackjack", "Noir"],    object: "Card",     line: "Beat a house that cheats first" },
+  { file: "slot-syndicate.html", key: "run:slot", title: ["Slot", "Syndicate"],    object: "Symbol",   line: "Rig your own machine" },
+  { file: "craps-crimson.html",  key: "run:cc",   title: ["Craps", "Crimson"],     object: "Die Face", line: "Carve the dice, chase the point" },
+  { file: "bingo-baroque.html",  key: "run:bb",   title: ["Bingo", "Baroque"],     object: "Cell",     line: "One card, daubed to the bone" },
+  { file: "darts-and-deals.html",key: "run:dd",   title: ["Darts &amp;", "Deals"], object: "Dart",     line: "A quiver of crooked arrows" },
+  { file: "domino-dynasty.html", key: "run:dom",  title: ["Domino", "Dynasty"],    object: "Bone",     line: "Build the line, hit the fives" },
+  { file: "mahjong-mechant.html",key: "run:mah",  title: ["Mahjong", "M&eacute;chant"], object: "Tile", line: "A wicked wall, a perfect hand" }
+];
+
+function savedRun(key) {
+  try {
+    const raw = localStorage.getItem(NS + key);
+    if (!raw) return null;
+    const env = JSON.parse(raw);
+    const d = env && env.data ? env.data : null;
+    if (!d || typeof d.ante !== "number") return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+function badgeFor(d) {
+  if (!d) return `<span class="badge">New Run</span>`;
+  const money = typeof d.money === "number" ? ` &middot; $${d.money}` : "";
+  return `<span class="badge resume">Resume &middot; Ante <b>${d.ante}</b> / 8${money}</span>`;
+}
+
+const grid = document.getElementById("grid");
+let active = 0;
+GAMES.forEach((g, i) => {
+  const d = savedRun(g.key);
+  if (d) active++;
+  const card = document.createElement("a");
+  card.className = "game-card";
+  card.href = g.file;
+  card.innerHTML =
+    `<div class="numeral">${NUMERALS[i]}</div>` +
+    `<h2>${g.title[0]} <span class="accent">${g.title[1]}</span></h2>` +
+    `<div class="object">${g.object}</div>` +
+    `<div class="line">${g.line}</div>` +
+    `<div class="status">${badgeFor(d)}<span class="enter">Enter &#9656;</span></div>`;
+  grid.appendChild(card);
+});
+
+document.getElementById("save-note").textContent = active
+  ? `${active} run${active > 1 ? "s" : ""} in progress`
+  : "no runs in progress";
+</script>
+</body>
+</html>

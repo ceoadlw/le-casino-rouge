@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Rouge Casino — Game Template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  /* palette */
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  /* typography */
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  /* spacing & shape — art deco favors sharp edges */
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  /* speed: 1, 2 or 4 — every animated duration divides by this */
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ====================================================================
+   Base
+   ==================================================================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+
+/* double-rule gold panel — the house frame */
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+/* ====================================================================
+   HUD (persistent header) & footer
+   ==================================================================== */
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+/* ====================================================================
+   Screens & router transitions
+   ==================================================================== */
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+/* ---- menu ---- */
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before { /* art deco sunburst */
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+/* ---- blind select ---- */
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+
+/* ---- table ---- */
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+.stage { min-height: 320px; }
+.rack { min-height: 90px; }
+.table-actions { grid-column: 2; display: flex; justify-content: flex-end; }
+
+/* ---- shop ---- */
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO</div>
+  <div class="controls">
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>The <span style="color:var(--lipstick)">Rouge</span> Casino</h1>
+      <p class="flavor">Eight games. One house. The house is you.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+      <button disabled title="Not part of the template">Collection</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2>Ante I</h2>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row">
+      <div class="blind-card panel">
+        <h3>Small Blind</h3>
+        <p>Score 300</p>
+        <p class="reward">Reward $3</p>
+        <button class="primary" data-go="table">Play</button>
+        <button disabled title="Tags arrive with game logic">Skip</button>
+      </div>
+      <div class="blind-card panel">
+        <h3>Big Blind</h3>
+        <p>Score 450</p>
+        <p class="reward">Reward $4</p>
+        <button class="primary" data-go="table">Play</button>
+        <button disabled title="Tags arrive with game logic">Skip</button>
+      </div>
+      <div class="blind-card panel boss">
+        <h3>Boss Blind</h3>
+        <p>Score 600</p>
+        <p class="reward">Reward $5</p>
+        <button class="primary" data-go="table">Play</button>
+        <button disabled title="Bosses cannot be skipped">Skip</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson">Small</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value">300</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value">0</div></div>
+        <div class="stat panel"><div class="label">Plays &middot; Discards</div><div class="value">4 &middot; 3</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value">$4</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value">1 / 8</div></div>
+      </aside>
+      <div class="stage placeholder">GAME STAGE&mdash;the game module mounts its wheel, shoe, reels, dice, card, board, line, or wall here. No game logic lives in the template.</div>
+      <div class="rack placeholder" style="grid-column:2">PLAYER RACK&mdash;atomic objects in hand / queue render here.</div>
+      <div class="table-actions">
+        <button class="primary" data-go="shop">Cash Out &rarr; Shop</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-slots">
+      <div class="placeholder">CHARM SLOT</div>
+      <div class="placeholder">CHARM SLOT</div>
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button disabled title="Rerolls arrive with shop logic">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>template.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+
+<script>
+"use strict";
+/* ====================================================================
+   THE ROUGE CASINO — shared template runtime
+   Modules: RNG, Store, AudioMgr, Settings, Speed, Router, Run
+   Exposed as window.Rouge for game modules and console testing.
+   ==================================================================== */
+const Rouge = (() => {
+
+  /* ---------------- RNG — seeded mulberry32 ----------------
+     ALL randomness routes through this. State is a single 32-bit
+     int, so runs serialize and resume deterministically. */
+  function xmur3(str) { // string seed → 32-bit hash
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return () => {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+
+  const RNG = {
+    seedStr: null,
+    state: 0,
+    init(seed) {
+      this.seedStr = String(seed ?? Date.now());
+      this.state = xmur3(this.seedStr)() | 0; // signed 32-bit, same as every later step — state round-trips exactly
+      return this;
+    },
+    random() { // mulberry32 core — [0, 1)
+      if (this.seedStr === null) this.init();
+      this.state = (this.state + 0x6D2B79F5) | 0;
+      let t = Math.imul(this.state ^ (this.state >>> 15), 1 | this.state);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+    int(min, max) { return Math.floor(this.random() * (max - min + 1)) + min; }, // inclusive
+    pick(arr) { return arr[this.int(0, arr.length - 1)]; },
+    chance(p) { return this.random() < p; },
+    shuffle(arr) { // in-place Fisher–Yates
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = this.int(0, i);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    },
+    getState() { return { seed: this.seedStr, state: this.state }; },
+    setState(s) { this.seedStr = s.seed; this.state = s.state | 0; },
+    guard() { // tripwire: nothing in the suite may call Math.random
+      const orig = Math.random.bind(Math);
+      let warned = 0;
+      Math.random = () => {
+        if (warned++ < 3) console.warn("[Rouge] Math.random() called — route ALL randomness through Rouge.rng");
+        return orig();
+      };
+    }
+  };
+
+  /* ---------------- Store — versioned localStorage layer ---------------- */
+  const Store = {
+    NS: "rouge-casino",
+    VERSION: 1,
+    _key(k) { return `${this.NS}:${k}`; },
+    save(key, value) {
+      try {
+        localStorage.setItem(this._key(key), JSON.stringify({ v: this.VERSION, data: value }));
+        return true;
+      } catch (e) {
+        console.warn("[Rouge] Store.save failed:", e);
+        return false;
+      }
+    },
+    load(key, fallback = null) {
+      try {
+        const raw = localStorage.getItem(this._key(key));
+        if (raw === null) return fallback;
+        const parsed = JSON.parse(raw);
+        if (parsed.v !== this.VERSION) {
+          const migrated = this._migrate(key, parsed);
+          return migrated === null ? fallback : migrated;
+        }
+        return parsed.data;
+      } catch (e) {
+        console.warn("[Rouge] Store.load failed:", e);
+        return fallback;
+      }
+    },
+    remove(key) { try { localStorage.removeItem(this._key(key)); } catch (e) { /* private mode */ } },
+    clearAll() {
+      const mine = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(this.NS + ":")) mine.push(k);
+      }
+      mine.forEach(k => localStorage.removeItem(k));
+    },
+    _migrate(key, old) { return null; } // future versions upgrade old payloads here
+  };
+
+  /* ---------------- AudioMgr — silent stub ----------------
+     Interface is final; playback is not. Games call play()
+     today and gain sound the day the assets land. */
+  const AudioMgr = {
+    debug: false,
+    muted: false,
+    volume: 1,
+    _sounds: Object.create(null),
+    register(name, src = null) { this._sounds[name] = { src }; },
+    play(name) {
+      if (!(name in this._sounds)) { console.warn(`[Rouge] AudioMgr: unknown sound "${name}"`); return; }
+      if (this.muted) return;
+      if (this.debug) console.log(`[Rouge] audio: ${name}`);
+      // stub — no playback yet
+    },
+    setVolume(v) { this.volume = Math.min(1, Math.max(0, v)); },
+    setMuted(m) { this.muted = !!m; }
+  };
+
+  /* ---------------- Settings — persisted via Store ---------------- */
+  const Settings = {
+    defaults: { speed: 1, muted: false },
+    current: {},
+    load() { this.current = Object.assign({}, this.defaults, Store.load("settings", {})); },
+    set(key, value) { this.current[key] = value; Store.save("settings", this.current); }
+  };
+
+  /* ---------------- Speed — 1× / 2× / 4× ----------------
+     CSS reads --speed (all --dur-* divide by it); JS timers
+     go through Speed.ms(). */
+  const Speed = {
+    STEPS: [1, 2, 4],
+    get() { return Settings.current.speed; },
+    set(s) {
+      if (!this.STEPS.includes(s)) s = 1;
+      Settings.set("speed", s);
+      document.documentElement.style.setProperty("--speed", s);
+      const btn = document.getElementById("btn-speed");
+      if (btn) btn.innerHTML = `${s}&times;`;
+    },
+    cycle() {
+      const next = this.STEPS[(this.STEPS.indexOf(this.get()) + 1) % this.STEPS.length];
+      this.set(next);
+      return next;
+    },
+    ms(base) { return base / this.get(); } // scale a JS duration
+  };
+
+  /* ---------------- Router — menu → blind-select → table → shop ---------------- */
+  const Router = {
+    SCREENS: ["menu", "blind-select", "table", "shop"],
+    current: null,
+    go(name) {
+      if (!this.SCREENS.includes(name)) { console.warn(`[Rouge] Router: unknown screen "${name}"`); return; }
+      if (name === this.current) return;
+      document.querySelectorAll(".screen.active").forEach(el => el.classList.remove("active"));
+      document.getElementById(`screen-${name}`).classList.add("active");
+      document.body.dataset.screen = name;
+      this.current = name;
+      window.dispatchEvent(new CustomEvent("rouge:screen", { detail: { screen: name } }));
+    }
+  };
+
+  /* ---------------- Run — minimal run shell ----------------
+     Just enough state (seed + RNG state + screen) to prove the
+     save layer end-to-end. Real run state arrives with game logic. */
+  const Run = {
+    current: null,
+    exists() { return Store.load("run") !== null; },
+    start(seedText) {
+      const seed = seedText && String(seedText).trim() !== "" ? String(seedText).trim() : undefined;
+      RNG.init(seed);
+      this.current = { seed: RNG.seedStr, createdAt: Date.now(), screen: "blind-select" };
+      this.persist();
+      updateSeedChip();
+      Router.go("blind-select");
+    },
+    resume() {
+      const saved = Store.load("run");
+      if (!saved) return false;
+      RNG.setState({ seed: saved.seed, state: saved.rngState });
+      this.current = saved;
+      updateSeedChip();
+      Router.go(saved.screen || "blind-select");
+      return true;
+    },
+    persist() {
+      if (!this.current) return;
+      this.current.rngState = RNG.state;
+      this.current.screen = Router.current === "menu" || Router.current === null
+        ? this.current.screen
+        : Router.current;
+      Store.save("run", this.current);
+    },
+    abandon() { this.current = null; Store.remove("run"); updateSeedChip(); }
+  };
+
+  function updateSeedChip() {
+    const chip = document.getElementById("seed-chip");
+    if (chip) chip.textContent = Run.current ? `SEED · ${Run.current.seed}` : "NO RUN";
+  }
+
+  /* ---------------- Boot ---------------- */
+  function boot() {
+    RNG.guard();
+    Settings.load();
+    Speed.set(Settings.current.speed);
+    AudioMgr.setMuted(Settings.current.muted);
+    syncMuteButton();
+
+    // the template's placeholder sound set — silent for now
+    ["click", "chip", "win", "boss", "cashout"].forEach(n => AudioMgr.register(n));
+
+    // navigation by data attribute: <button data-go="shop">
+    document.addEventListener("click", e => {
+      const btn = e.target.closest("button");
+      if (!btn || btn.disabled) return;
+      AudioMgr.play("click");
+      if (btn.dataset.go) Router.go(btn.dataset.go);
+    });
+
+    document.getElementById("btn-new-run").addEventListener("click", () => {
+      Run.start(document.getElementById("seed-input").value);
+    });
+    document.getElementById("btn-continue").addEventListener("click", () => Run.resume());
+    document.getElementById("btn-speed").addEventListener("click", () => Speed.cycle());
+    document.getElementById("btn-mute").addEventListener("click", () => {
+      AudioMgr.setMuted(!AudioMgr.muted);
+      Settings.set("muted", AudioMgr.muted);
+      syncMuteButton();
+    });
+
+    // keep the run snapshot fresh as the player moves between screens
+    window.addEventListener("rouge:screen", () => Run.persist());
+
+    document.getElementById("btn-continue").disabled = !Run.exists();
+    updateSeedChip();
+    Router.go("menu");
+  }
+
+  function syncMuteButton() {
+    const btn = document.getElementById("btn-mute");
+    if (btn) btn.textContent = AudioMgr.muted ? "SOUND OFF" : "SOUND ON";
+  }
+
+  document.addEventListener("DOMContentLoaded", boot);
+
+  return { rng: RNG, store: Store, audio: AudioMgr, settings: Settings, speed: Speed, router: Router, run: Run };
+})();
+window.Rouge = Rouge;
+</script>
+</body>
+</html>

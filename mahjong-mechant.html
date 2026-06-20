@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mahjong Méchant — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .78rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .08rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+
+/* ====================================================================
+   MAHJONG MÉCHANT — table layer styles
+   ==================================================================== */
+.mah-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+/* tiles */
+.tile {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 34px; height: 46px; border-radius: 4px; background: var(--ivory); border: 1px solid var(--gold-leaf);
+  box-shadow: 0 1px 3px rgba(0,0,0,.6); font-family: var(--font-display); font-weight: 700;
+  color: var(--noir-velvet); line-height: 1; user-select: none; position: relative;
+}
+.tile .tn { font-size: 1.15rem; }
+.tile .ts { font-size: .5rem; letter-spacing: .04em; color: var(--crimson-velvet); margin-top: 1px; }
+.tile.man .ts { color: #8A1B2B; }
+.tile.pin .ts { color: #1d5c6e; }
+.tile.sou .ts { color: #2f6b30; }
+.tile.honor { background: #efe4c4; }
+.tile.honor .tn { color: var(--crimson-velvet); font-size: .95rem; }
+.tile.honor.wind .tn { color: #1d4e6e; }
+.tile.drawn { outline: 2px solid var(--champagne); box-shadow: 0 0 8px rgba(239,217,167,.6); }
+.tile.censored { opacity: .5; }
+.tile.censored::after { content: "·"; }
+
+.mah-hand-wrap { padding: var(--space-2); }
+.mah-hand { display: flex; gap: .25rem; flex-wrap: wrap; align-items: flex-end; min-height: 50px; }
+.mah-hand .tile { cursor: pointer; transition: transform var(--dur-fast); }
+.mah-hand.discardable .tile:hover { transform: translateY(-4px); }
+.mah-hand:not(.discardable) .tile { cursor: default; }
+
+.mah-info { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: var(--space-2); }
+.mah-info .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.mah-info b { font-family: var(--font-display); color: var(--champagne); }
+.mah-yaku { display: flex; gap: .4rem; flex-wrap: wrap; }
+.yaku-chip { font-family: var(--font-display); font-size: .62rem; letter-spacing: .08em; padding: .15rem .45rem; border-radius: var(--radius); border: 1px solid var(--gold-leaf); color: var(--champagne); }
+.yaku-chip.yakuman { border-color: var(--lipstick); color: var(--lipstick); box-shadow: 0 0 6px rgba(196,40,71,.5); }
+
+.mah-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.mah-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 130px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.mah-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.mah-controls .wall-chip { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); margin-left: auto; }
+.mah-peek { font-style: italic; color: var(--smoke); font-size: .85rem; }
+
+/* wall-targeting modal (omens) */
+#chooser { display: none; position: fixed; inset: 0; z-index: 11; background: rgba(18,13,10,.85); align-items: center; justify-content: center; }
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 320px; max-width: 660px; max-height: 88vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+#chooser-wall { display: none; flex-direction: column; gap: .35rem; }
+#chooser-wall.show { display: flex; }
+.wall-row { display: flex; gap: .25rem; flex-wrap: wrap; justify-content: center; }
+.wall-tile { position: relative; cursor: pointer; }
+.wall-tile .cnt { position: absolute; top: -5px; right: -5px; font-size: .55rem; background: var(--crimson-velvet); color: var(--ivory); border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); }
+.wall-tile.loaded .tile { box-shadow: 0 0 7px rgba(239,217,167,.85); }
+.wall-tile:hover .tile { outline: 2px solid var(--champagne); }
+.wall-tile.no { opacity: .35; cursor: not-allowed; }
+
+/* overlay */
+#overlay { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(18,13,10,.85); align-items: center; justify-content: center; }
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; MAHJONG M&Eacute;CHANT</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Mahjong <span style="color:var(--lipstick)">M&eacute;chant</span></h1>
+      <p class="flavor">A wicked wall, a perfect hand.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Hands</div><div class="value" id="rail-hands">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Redraws</div><div class="value" id="rail-redraws">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="mah-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="mah-info panel" id="mah-info"></div>
+
+        <div class="mah-hand-wrap panel">
+          <div class="bar-label" id="hand-label">YOUR HAND</div>
+          <div class="mah-hand" id="mah-hand"></div>
+          <div class="mah-peek" id="mah-peek"></div>
+        </div>
+
+        <div class="mah-result panel">
+          <div>
+            <div id="result-label" class="flavor">Deal &amp; draw toward four sets and a pair with a yaku.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">A completed hand's yaku and score appear here.</li></ul></div>
+
+        <div class="mah-controls">
+          <button class="primary" id="btn-draw">Draw</button>
+          <button id="btn-win" hidden>Declare Win</button>
+          <button id="btn-redraw" hidden>Redraw (3)</button>
+          <span class="wall-chip" id="wall-chip">WALL 136</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-wall"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>mahjong-mechant.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+/* ====================================================================
+   MAHJONG MÉCHANT — game module (spec.md §3.8, revised ladder)
+   On the shared spine (rouge-spine.js); Rouge.run.configure() at the
+   bottom plugs in the save key + initial run state.
+
+   Atomic object: the wall Tile — 34 kinds × 4 = 136 (man/pin/sou 1–9 +
+   4 winds + 3 dragons). Modelled as run.tiles[34] counts (+ run.loaded
+   draw-weighting); omens edit the wall — the deepest deck-thinning here.
+
+   Play: solitaire Riichi. Deal 13, draw + discard toward four sets and a
+   pair; a complete hand scores only with ≥1 yaku. 4 hands + 3 redraws per
+   blind, ≤18 draws/hand, bust = 0. Yaku STACK (add chips + mult); each
+   tile contributes its value as chips before the yaku bonus. Riichi is
+   the auto floor-yaku on any completed (ready) hand.
+   ==================================================================== */
+const MAH = (() => {
+  const HANDS_PER_BLIND = 4, REDRAWS_PER_BLIND = 3, DRAWS_PER_HAND = 40, HAND_TILES = 13;
+  // draws raised from the prompt's 18 in the 2026-06-15 hardening pass: solitaire concealed mahjong
+  // (draw-only, no calls) completes far slower than table play — at 18 the bot busted 82% of hands and
+  // starved at Ante 1, at 28 still 58%. 40 self-draws (a CAP; most hands end on a win or give-up well
+  // before it) give a fair completion rate without the zero-completion blinds that made A1 a coin flip.
+  const INTEREST_STEP = 5, INTEREST_CAP = 5;
+  const HONOR_VAL = 5;            // honor tiles contribute a fixed chip value
+  const MIN_WALL = 90;           // omen guard (need enough to deal + draw)
+
+  /* tile kinds 0–33: 0-8 man, 9-17 pin, 18-26 sou, 27-30 winds E S W N, 31-33 dragons White Green Red */
+  const SUIT_OF = k => k < 9 ? "m" : k < 18 ? "p" : k < 27 ? "s" : "z";
+  const NUM_OF = k => k < 27 ? (k % 9) + 1 : k - 26; // suits 1-9, honors 1-7
+  const isHonor = k => k >= 27;
+  const isTerminal = k => k < 27 && (k % 9 === 0 || k % 9 === 8);
+  const isTermHonor = k => isHonor(k) || isTerminal(k);
+  const isDragon = k => k >= 31;
+  const SUIT_IDX = { m: 0, p: 1, s: 2 };
+  const HONOR_LABEL = ["E", "S", "W", "N", "白", "發", "中"];
+  const KOKUSHI = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33]; // terminals + honors
+
+  function tileLabel(k) {
+    if (isHonor(k)) return HONOR_LABEL[k - 27];
+    return NUM_OF(k) + SUIT_OF(k);
+  }
+  function freshTiles() { return new Array(34).fill(4); } // 136
+  const wallSize = tiles => tiles.reduce((a, b) => a + b, 0);
+
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +1 hand." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder (yaku) ----------------
+     Weakest → strongest. YAKU STACK: a hand adds the chips and mult of
+     every yaku it qualifies for. Riichi is the floor (every ready win).
+     Thirteen Orphans is the yakuman and replaces the standard yaku. */
+  const LADDER = [
+    { rung: 1,  key: "riichi",   name: "Riichi",          chips: 40,  mult: 2, up: { c: 15, m: 1 } },
+    { rung: 2,  key: "tanyao",   name: "Tanyao",          chips: 55,  mult: 2, up: { c: 18, m: 1 } },
+    { rung: 3,  key: "yakuhai",  name: "Yakuhai",         chips: 60,  mult: 3, up: { c: 20, m: 2 } },
+    { rung: 4,  key: "pinfu",    name: "Pinfu",           chips: 60,  mult: 3, up: { c: 20, m: 2 } },
+    { rung: 5,  key: "sanshoku", name: "Sanshoku",        chips: 90,  mult: 4, up: { c: 28, m: 2 } },
+    { rung: 6,  key: "ittsu",    name: "Ittsu",           chips: 100, mult: 4, up: { c: 30, m: 3 } },
+    { rung: 7,  key: "toitoi",   name: "Toitoi",          chips: 110, mult: 5, up: { c: 32, m: 3 } },
+    { rung: 8,  key: "honitsu",  name: "Honitsu",         chips: 140, mult: 6, up: { c: 40, m: 3 } },
+    { rung: 9,  key: "chinitsu", name: "Chinitsu",        chips: 190, mult: 8, up: { c: 50, m: 4 } },
+    { rung: 10, key: "kokushi",  name: "Thirteen Orphans",chips: 400, mult: 18,up: { c: 100,m: 7 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes. onWin mutates ctx.chips / ctx.mult in
+     STRICT bar order; ctx.h carries hand facts (yakuKeys, chiCount,
+     ponCount, hasDragonPon, honorCount, noHonors, flush, yakuCount). */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat
+    bamboo:   { name: "Bamboo Broker",  type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+40 Chips per completed Chi (sequence) in the hand",
+      onWin: (i, c) => { c.chips += 40 * c.h.chiCount; } },
+    ponshop:  { name: "The Pon Shop",   type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+30 Chips per completed Pon (triplet) in the hand",
+      onWin: (i, c) => { c.chips += 30 * c.h.ponCount; } },
+    honorgd:  { name: "Honor Guard",    type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+12 Chips per honor tile in the hand",
+      onWin: (i, c) => { c.chips += 12 * c.h.honorCount; } },
+    // scaling
+    sensei:   { name: "The Sensei",     type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every hand (+1 per yaku scored this run)`,
+      onWin: (i, c) => { c.mult += i.state.m; },
+      onHandEnd: (i, e) => { i.state.m += e.yakuCount; } },
+    wallmem:  { name: "Wall Memory",    type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ c: 0 }),
+      desc: s => `+${s.c} Chips on every hand (+3 per hand played this run)`,
+      onWin: (i, c) => { c.chips += i.state.c; },
+      onHandEnd: i => { i.state.c += 3; } },
+    yakuman:  { name: "Yakuman Dreams",  type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every hand (+2 per flush or Thirteen Orphans this run)`,
+      onWin: (i, c) => { c.mult += i.state.m; },
+      onHandEnd: (i, e) => { if (e.flush || e.kokushi) i.state.m += 2; } },
+    // conditional
+    simple:   { name: "Simple Soul",    type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×3 Mult on hands with no honor tiles",
+      onWin: (i, c) => { if (c.h.noHonors) c.mult *= 3; } },
+    dragon:   { name: "Dragon Tamer",   type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+6 Mult when the hand holds a dragon triplet",
+      onWin: (i, c) => { if (c.h.hasDragonPon) c.mult += 6; } },
+    straight: { name: "Straight Edge",  type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "+60 Chips when the hand holds any sequence",
+      onWin: (i, c) => { if (c.h.chiCount > 0) c.chips += 60; } },
+    closedf:  { name: "Closed Fist",    type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "×2 Mult on all-triplet hands (Toitoi)",
+      onWin: (i, c) => { if (c.h.yakuKeys.has("toitoi")) c.mult *= 2; } },
+    // economy
+    parlor:   { name: "The Parlor",     type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $1 for every Riichi declared (every completed hand)",
+      onHandEnd: (i, e) => { if (e.won) { e.run.money += 1; e.moneyGained.n += 1; } } },
+    teahouse: { name: "The Teahouse",   type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["The Teahouse", 3] },
+    vparlor:  { name: "Velvet Parlor",  type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    abacus:   { name: "The Abacus",     type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onWin: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    // ×mult
+    flushc:   { name: "The Flush",      type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×4 Mult on any flush (Honitsu or Chinitsu)",
+      onWin: (i, c) => { if (c.h.flush) c.mult *= 4; } },
+    crimson:  { name: "Crimson Wall",   type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every hand",
+      onWin: (i, c) => { c.mult *= 1.5; } },
+    mechant:  { name: "The Méchant",    type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult on hands with 3 or more yaku",
+      onWin: (i, c) => { if (c.h.yakuCount >= 3) c.mult *= 3; } },
+    // utility
+    oracle:   { name: "The Oracle",     type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "Reveal the next wall tile before you draw",
+      peek: true },
+    spareh:   { name: "Spare Hand",     type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Redraw each blind",
+      extraRedraws: 1 },
+    longwall: { name: "The Long Wall",  type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+4 draws per hand",
+      extraDraws: 4 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2);
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] === true ? 0 : (CHARMS[inst.id][flag] ?? 0)), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     Wall-editing is the deck manipulation: The Sweep / La Grande Purge
+     thin junk kinds out of the wall, The Magnet weights a kind toward the
+     opening hand, The Smith adds a copy. use kinds: instant / chooser /
+     target (a wall modal showing the 34 kinds). */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    sweep:    { name: "The Sweep",       tier: 1, cost: 4, use: "target", target: { kind: "remove", count: 1 },
+      desc: "Pull one copy of a chosen tile from the wall forever (thin the junk)" },
+    housemarker: { name: "House Marker", tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    magnet:   { name: "The Magnet",      tier: 2, cost: 6, use: "target", target: { kind: "load", count: 1 },
+      desc: "Weight a chosen tile — far likelier in your opening hand" },
+    smith:    { name: "The Smith",       tier: 2, cost: 7, use: "target", target: { kind: "add", count: 1 },
+      desc: "Forge an extra copy of a chosen tile into the wall" },
+    tempo:    { name: "Fresh Tiles",     tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+1 hand this blind",
+      apply: () => { blind.handsTotal += 1; blind.handsLeft += 1; return "+1 hand"; } },
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    purge:    { name: "La Grande Purge", tier: 3, cost: 9, use: "target", target: { kind: "remove", count: 3 },
+      desc: "Pull three copies of chosen tiles from the wall forever" },
+    orphan:   { name: "The Orphan's Blessing", tier: 3, cost: 9, use: "instant",
+      desc: "Thirteen Orphans levels up twice and Chinitsu once",
+      apply: run => { bumpLevel(run, "kokushi", 2); bumpLevel(run, "chinitsu", 1); return "the orphans gather"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warps (spec §2.4) ---------------- */
+  const BOSSES = {
+    deadwall:   { name: "The Dead Wall",
+      desc: "Five fewer draws per hand this blind" },
+    censor:     { name: "The Censor",
+      desc: "A random suit's tiles contribute no chips" },
+    sealedwall: { name: "The Sealed Wall",
+      desc: "No redraws this blind" },
+    closedgate: { name: "The Closed Gate",
+      desc: "Pon and Kan can't be used — sequence hands only" },
+    purist:     { name: "The Purist", minAnte: 2,
+      desc: "A hand needs two stacked yaku to score, not one" },
+    pitboss:    { name: "The Pit Boss",
+      desc: "Your most-leveled yaku is banned this blind" },
+    shorthand:  { name: "The Short Hand", minAnte: 2,
+      desc: "One fewer hand this blind" },
+    stickler:   { name: "The Stickler", minAnte: 2,
+      desc: "Riichi does not count — a hand needs a real yaku" },
+    eye:        { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No yaku may be scored twice this blind" },
+    houseedge:  { name: "The House Edge", minAnte: 3,
+      desc: "Every yaku's base Mult is halved (minimum 1)" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ====================================================================
+     MAHJONG ENGINE — decomposition, win detection, yaku, shanten
+     ==================================================================== */
+
+  // enumerate every way to split a (post-pair) count into sets; returns list of set-lists
+  function extractAllSets(c, i, cur, out) {
+    while (i < 34 && c[i] === 0) i++;
+    if (i >= 34) { out.push(cur.slice()); return; }
+    if (c[i] >= 3) { c[i] -= 3; cur.push({ type: "pon", kind: i }); extractAllSets(c, i, cur, out); cur.pop(); c[i] += 3; }
+    if (i < 27 && i % 9 <= 6 && c[i + 1] > 0 && c[i + 2] > 0) {
+      c[i]--; c[i + 1]--; c[i + 2]--; cur.push({ type: "chi", kind: i });
+      extractAllSets(c, i, cur, out); cur.pop(); c[i]++; c[i + 1]++; c[i + 2]++;
+    }
+    // if tile i can't start a set, this branch dies (no push) — a valid decomposition consumes every tile
+  }
+  function decomposeAll(cnt) { // 14 tiles → every {pair, sets[4]} decomposition (standard form)
+    const out = [];
+    for (let p = 0; p < 34; p++) {
+      if (cnt[p] >= 2) {
+        const c = cnt.slice(); c[p] -= 2;
+        const sets = [];
+        extractAllSets(c, 0, [], sets);
+        sets.forEach(s => { if (s.length === 4) out.push({ pair: p, sets: s }); });
+      }
+    }
+    return out;
+  }
+  function isKokushi(cnt) { // thirteen orphans: each terminal/honor present, exactly one pair, nothing else
+    let pairs = 0;
+    for (let k = 0; k < 34; k++) {
+      if (KOKUSHI.includes(k)) { if (cnt[k] === 0) return false; if (cnt[k] === 2) pairs++; else if (cnt[k] > 2) return false; }
+      else if (cnt[k] > 0) return false;
+    }
+    return pairs === 1;
+  }
+  const isComplete = cnt => isKokushi(cnt) || decomposeAll(cnt).length > 0;
+
+  /* greedy shanten (fast, for the bot's discard pathing — exact wins use isComplete) */
+  function shanten(cnt) {
+    // kokushi shanten
+    let kinds = 0, kokPair = false;
+    for (const k of KOKUSHI) { if (cnt[k] > 0) { kinds++; if (cnt[k] >= 2) kokPair = true; } }
+    let best = 13 - kinds - (kokPair ? 1 : 0);
+    // standard greedy
+    const c = cnt.slice();
+    let sets = 0, partials = 0, pair = false;
+    for (let k = 27; k < 34; k++) { while (c[k] >= 3) { c[k] -= 3; sets++; } }
+    for (let k = 27; k < 34; k++) { if (c[k] === 2) { if (!pair) { pair = true; c[k] -= 2; } else { partials++; c[k] -= 2; } } }
+    for (let s = 0; s < 3; s++) {
+      const base = s * 9;
+      for (let i = 0; i < 9; i++) {
+        while (c[base + i] >= 3) { c[base + i] -= 3; sets++; }
+        if (i <= 6 && c[base + i] > 0 && c[base + i + 1] > 0 && c[base + i + 2] > 0) { c[base + i]--; c[base + i + 1]--; c[base + i + 2]--; sets++; i--; }
+      }
+    }
+    for (let s = 0; s < 3; s++) {
+      const base = s * 9;
+      for (let i = 0; i < 9; i++) {
+        if (c[base + i] >= 2) { if (!pair) { pair = true; c[base + i] -= 2; } else { partials++; c[base + i] -= 2; } }
+      }
+      for (let i = 0; i < 9; i++) {
+        if (c[base + i] > 0 && i <= 7 && c[base + i + 1] > 0) { partials++; c[base + i]--; c[base + i + 1]--; }
+        else if (c[base + i] > 0 && i <= 6 && c[base + i + 2] > 0) { partials++; c[base + i]--; c[base + i + 2]--; }
+      }
+    }
+    let usable = partials;
+    if (sets + usable > 4) usable = Math.max(0, 4 - sets);
+    const std = 8 - 2 * sets - usable - (pair ? 1 : 0);
+    return Math.min(best, std);
+  }
+
+  /* yaku of a standard decomposition (+ the full count for flush/tanyao). Returns
+     { keys:Set, list:[key…], chiCount, ponCount, hasDragonPon, honorCount } */
+  function yakuOfDecomp(dec, cnt, boss) {
+    const keys = new Set();
+    const chi = dec.sets.filter(s => s.type === "chi");
+    const pon = dec.sets.filter(s => s.type === "pon");
+    const chiCount = chi.length, ponCount = pon.length;
+    const hasDragonPon = pon.some(s => isDragon(s.kind));
+    // tanyao
+    let allSimple = true;
+    for (let k = 0; k < 34; k++) if (cnt[k] > 0 && isTermHonor(k)) { allSimple = false; break; }
+    if (allSimple) keys.add("tanyao");
+    // yakuhai — dragon or East-wind triplet
+    if (pon.some(s => isDragon(s.kind) || s.kind === 27)) keys.add("yakuhai");
+    // pinfu — all sequences + valueless pair (not dragon, not East)
+    if (chiCount === 4 && !(isDragon(dec.pair) || dec.pair === 27)) keys.add("pinfu");
+    // sanshoku — same sequence in all three suits
+    for (const s of chi) { const off = s.kind % 9; if (s.kind < 9 && chi.some(x => x.kind === 9 + off) && chi.some(x => x.kind === 18 + off)) { keys.add("sanshoku"); break; } }
+    // ittsu — 1-9 straight in one suit
+    for (let su = 0; su < 3; su++) { const b = su * 9; if (chi.some(x => x.kind === b) && chi.some(x => x.kind === b + 3) && chi.some(x => x.kind === b + 6)) { keys.add("ittsu"); break; } }
+    // toitoi — all triplets
+    if (ponCount === 4) keys.add("toitoi");
+    // flush — honitsu / chinitsu
+    const suitsUsed = new Set();
+    let hasHonor = false, honorCount = 0;
+    for (let k = 0; k < 34; k++) if (cnt[k] > 0) { if (isHonor(k)) { hasHonor = true; honorCount += cnt[k]; } else suitsUsed.add(SUIT_OF(k)); }
+    if (suitsUsed.size === 1) { if (hasHonor) keys.add("honitsu"); else keys.add("chinitsu"); }
+    return { keys, chiCount, ponCount, hasDragonPon, honorCount };
+  }
+
+  function eventBase(e, run, boss) {
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    let chips = e.chips + lvl * e.up.c;
+    let mult = e.mult + lvl * e.up.m;
+    if (boss === "houseedge") mult = Math.max(1, Math.ceil(mult / 2));
+    return { chips, mult };
+  }
+
+  /* evaluate a complete 14-tile hand → best-scoring legal interpretation, or null if it can't
+     win (no yaku / not enough yaku under The Purist). Headless; shared with the sim. */
+  function evalHand(run, blindState, boss, cnt, censorSuit) {
+    const tileChips = () => { let t = 0; for (let k = 0; k < 34; k++) if (cnt[k] > 0) { const v = (boss === "censor" && SUIT_OF(k) === censorSuit) ? 0 : (isHonor(k) ? HONOR_VAL : NUM_OF(k)); t += v * cnt[k]; } return t; };
+    const need = boss === "purist" ? 2 : 1;
+    // kokushi
+    if (isKokushi(cnt)) {
+      const yk = ["kokushi"];
+      if (boss !== "stickler") yk.push("riichi");
+      if (boss === "pitboss" && blindState.banned === "kokushi") return null;
+      const facts = { yakuKeys: new Set(yk), yakuCount: yk.length, chiCount: 0, ponCount: 0, hasDragonPon: false, honorCount: 7, noHonors: false, flush: false, kokushi: true };
+      if (yk.length < need) return null;
+      return scoreYaku(run, boss, yk, tileChips(), facts, blindState);
+    }
+    const decs = decomposeAll(cnt);
+    if (decs.length === 0) return null;
+    let best = null, bestScore = -1, bestFacts = null, bestKeys = null;
+    for (const dec of decs) {
+      const y = yakuOfDecomp(dec, cnt, boss);
+      if (boss === "closedgate" && y.ponCount > 0) continue; // sequence hands only
+      let keys = [...y.keys];
+      if (boss !== "stickler") keys.unshift("riichi");
+      if (boss === "pitboss") keys = keys.filter(k => k !== blindState.banned);
+      if (boss === "eye") keys = keys.filter(k => !blindState.scoredYaku.has(k));
+      if (keys.length < need) continue;
+      const noHonors = y.honorCount === 0;
+      const flush = y.keys.has("honitsu") || y.keys.has("chinitsu");
+      const facts = { yakuKeys: new Set(keys), yakuCount: keys.length, chiCount: y.chiCount, ponCount: y.ponCount,
+        hasDragonPon: y.hasDragonPon, honorCount: y.honorCount, noHonors, flush, kokushi: false };
+      const res = scoreYaku(run, boss, keys, tileChips(), facts, blindState);
+      if (res.gain > bestScore) { bestScore = res.gain; best = res; bestFacts = facts; bestKeys = keys; }
+    }
+    return best;
+  }
+
+  function scoreYaku(run, boss, keys, tileChips, facts, blindState) {
+    let chips = tileChips, mult = 0;
+    const lines = [];
+    for (const k of keys) {
+      const base = eventBase(RUNG[k], run, boss);
+      chips += base.chips; mult += base.mult;
+      lines.push({ key: k, name: RUNG[k].name, chips: base.chips, mult: base.mult });
+    }
+    const ctx = { chips, mult, h: facts, run };
+    for (const inst of run.charms) CHARMS[inst.id].onWin?.(inst, ctx);
+    const gain = Math.floor(ctx.chips * ctx.mult);
+    return { gain, keys, facts, lines, chips: ctx.chips, mult: ctx.mult, tileChips };
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+
+  /* ---------------- state ---------------- */
+  let blind = null;     // {idx, target, score, handsTotal/Left, redrawsTotal/Left, drawsPerHand, scoredYaku, banned, censorSuit, ...}
+  let handCnt = null;   // 34-count of the current hand (13 or 14 tiles)
+  let wallDraw = null;  // ordered draw pile (kinds)
+  let drawsUsed = 0, drawnTile = -1, phase = "opening"; // opening | draw | discard | done
+  let winEval = null;   // evalHand result for the current 14-tile hand, or null
+  let lastSeed = "";
+  let targeting = null, chooserOmenIdx = null;
+
+  /* ---------------- deal ---------------- */
+  function dealHand(run) {
+    const pool = [];
+    for (let k = 0; k < 34; k++) for (let n = 0; n < run.tiles[k]; n++) pool.push(k);
+    const loaded = pool.filter(k => run.loaded.includes(k));
+    const rest = pool.filter(k => !run.loaded.includes(k));
+    const order = Rouge.rng.shuffle(loaded.slice()).concat(Rouge.rng.shuffle(rest.slice()));
+    const cnt = new Array(34).fill(0);
+    for (let i = 0; i < HAND_TILES; i++) cnt[order[i]]++;
+    return { cnt, draw: order.slice(HAND_TILES) };
+  }
+
+  /* ---------------- blind flow ---------------- */
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { hands: 0, wins: 0, busts: 0, best: 0, beaten: 0, skips: 0, redraws: 0 };
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.tiles) run.tiles = freshTiles();
+    run.loaded ??= [];
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0);
+    const usedTags = [];
+    let hands = HANDS_PER_BLIND;
+    let redraws = REDRAWS_PER_BLIND + charmFlag(run, "extraRedraws");
+    let draws = DRAWS_PER_HAND + charmFlag(run, "extraDraws");
+    let rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { hands++; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    const boss = idx === 2 ? run.boss : null;
+    if (boss === "shorthand") hands = Math.max(1, hands - 1);
+    if (boss === "deadwall") draws = Math.max(4, draws - 5);
+    if (boss === "sealedwall") redraws = 0;
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              handsTotal: hands, handsLeft: hands, redrawsTotal: redraws, redrawsLeft: redraws,
+              drawsPerHand: draws, won: false, rewardMult, usedTags,
+              scoredYaku: new Set(), banned: null, censorSuit: -1 };
+    if (boss === "pitboss") {
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    if (boss === "censor") blind.censorSuit = ["m", "p", "s"][Rouge.rng.int(0, 2)];
+    const bb = $("boss-banner");
+    if (boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[boss].name}</b> &mdash; ${BOSSES[boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "") +
+        (blind.censorSuit !== "-1" && blind.censorSuit !== -1 ? ` (<b>${blind.censorSuit.toUpperCase()} suit</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    $("breakdown-list").innerHTML = '<li class="flavor">A completed hand\'s yaku and score appear here.</li>';
+    $("win-banner").classList.remove("show"); $("win-banner").innerHTML = "";
+    beginHand(true);
+    renderCharms(); renderOmens(); renderLadder(); renderRail();
+    Rouge.router.go("table");
+  }
+
+  function beginHand() {
+    const run = Rouge.run.current;
+    const dealt = dealHand(run);
+    handCnt = dealt.cnt; wallDraw = dealt.draw;
+    drawsUsed = 0; drawnTile = -1; phase = "opening"; winEval = null;
+    $("result-label").textContent = `Hand ${blind.handsTotal - blind.handsLeft + 1} of ${blind.handsTotal} — draw toward a yaku, or redraw a hopeless start.`;
+    $("result-gain").textContent = "";
+    renderAll();
+  }
+
+  function renderAll() {
+    renderHand(); renderInfo(); renderRail(); renderPeek(); syncControls();
+  }
+
+  /* ---------------- the Hand — live flow ---------------- */
+  const maxDraws = () => blind.drawsPerHand;
+
+  function drawTile() {
+    if (!blind || blind.won || (phase !== "opening" && phase !== "draw")) return;
+    if (drawsUsed >= maxDraws() || wallDraw.length === 0) return;
+    const k = wallDraw.shift();
+    handCnt[k]++; drawnTile = k; drawsUsed++; phase = "discard";
+    Rouge.run.persist();
+    Rouge.audio.play("chip");
+    winEval = evalHand(Rouge.run.current, blind, bossId(), handCnt, blind.censorSuit);
+    $("result-label").textContent = winEval
+      ? `Complete hand ready — ${winEval.keys.map(x => RUNG[x].name).join(" + ")}! Declare, or chase more.`
+      : "Discard a tile.";
+    renderAll();
+  }
+
+  function discardTile(k) {
+    if (phase !== "discard" || handCnt[k] === 0) return;
+    handCnt[k]--; drawnTile = -1; phase = "draw"; winEval = null;
+    Rouge.run.persist();
+    if (drawsUsed >= maxDraws()) { resolveHand(false); return; }
+    $("result-label").textContent = "Draw the next tile.";
+    renderAll();
+  }
+
+  function declareWin() {
+    if (!winEval || phase !== "discard") return;
+    resolveHand(true);
+  }
+
+  function redraw() {
+    if (!blind || phase !== "opening" || drawsUsed > 0 || blind.redrawsLeft === 0 || bossId() === "sealedwall") return;
+    blind.redrawsLeft--;
+    Rouge.run.current.stats.redraws++;
+    beginHand();
+    Rouge.run.persist();
+  }
+
+  function resolveHand(won) {
+    const run = Rouge.run.current, boss = bossId();
+    run.stats.hands++;
+    const gain = won ? winEval.gain : 0;
+    if (won) { run.stats.wins++; if (gain > run.stats.best) run.stats.best = gain; if (boss === "eye") winEval.keys.forEach(x => blind.scoredYaku.add(x)); }
+    else run.stats.busts++;
+    blind.score += gain;
+    const moneyGained = { n: 0 };
+    const hf = { won, yakuCount: won ? winEval.keys.length : 0, flush: won && winEval.facts.flush, kokushi: won && winEval.facts.kokushi, run, moneyGained };
+    for (const inst of run.charms) CHARMS[inst.id].onHandEnd?.(inst, hf);
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    if (won) {
+      $("breakdown-list").innerHTML = winEval.lines.map(l => `<li><span class="ev">${l.name}</span><span class="math"><span class="c">+${l.chips}</span> · <span class="m">+${fmtMult(l.mult)}m</span></span></li>`).join("") +
+        `<li><span class="ev">Tiles ${winEval.tileChips} + yaku</span><span class="math"><span class="c">${fmt(winEval.chips)}</span> × <span class="m">${fmtMult(winEval.mult)}</span> = <b>${fmt(gain)}</b></span></li>`;
+      $("result-label").textContent = `Hand complete — ${winEval.keys.map(x => RUNG[x].name).join(" + ")}.`;
+      $("result-gain").textContent = `+${fmt(gain)}${moneyGained.n ? ` · +$${moneyGained.n}` : ""}`;
+      Rouge.audio.play("win");
+    } else {
+      $("breakdown-list").innerHTML = '<li class="flavor">Out of draws — the hand busts for zero.</li>';
+      $("result-label").textContent = "Busted — no complete hand in time.";
+      $("result-gain").textContent = moneyGained.n ? `+$${moneyGained.n}` : "";
+    }
+    phase = "done"; drawnTile = -1; winEval = null;
+    blind.handsLeft--;
+    renderRail(); renderCharms(); renderHand(); renderInfo();
+    Rouge.run.persist();
+    if (blind.score >= blind.target && !blind.won) { winBlind(); syncControls(); return; }
+    if (blind.handsLeft === 0) { syncControls(); loseRun(); return; }
+    syncControls();
+    setTimeout(() => { if (Rouge.run.current && blind && !blind.won && blind.handsLeft > 0) beginHand(); }, Rouge.speed.ms(850));
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Mahjong Méchant declares its final hand."
+      : `The wall went dry — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed], ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`], ["Blinds beaten", run.stats.beaten], ["Blinds skipped", run.stats.skips],
+      ["Hands played", run.stats.hands], ["Hands won", run.stats.wins], ["Hands busted", run.stats.busts],
+      ["Redraws used", run.stats.redraws], ["Best hand", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- rendering — tiles ---------------- */
+  function tileEl(k, drawn) {
+    const el = document.createElement("div");
+    const suit = SUIT_OF(k);
+    el.className = "tile " + (suit === "m" ? "man" : suit === "p" ? "pin" : suit === "s" ? "sou" : "honor" + (k < 31 ? " wind" : "")) + (drawn ? " drawn" : "");
+    if (bossId() === "censor" && suit === blind.censorSuit) el.classList.add("censored");
+    if (isHonor(k)) el.innerHTML = `<span class="tn">${HONOR_LABEL[k - 27]}</span>`;
+    else el.innerHTML = `<span class="tn">${NUM_OF(k)}</span><span class="ts">${suit.toUpperCase()}</span>`;
+    return el;
+  }
+  function renderHand() {
+    const el = $("mah-hand");
+    if (!el || !handCnt) return;
+    el.className = "mah-hand" + (phase === "discard" ? " discardable" : "");
+    el.innerHTML = "";
+    let drawnPlaced = false;
+    for (let k = 0; k < 34; k++) {
+      for (let n = 0; n < handCnt[k]; n++) {
+        const isDrawn = k === drawnTile && !drawnPlaced;
+        if (isDrawn) drawnPlaced = true;
+        const t = tileEl(k, isDrawn);
+        if (phase === "discard") t.addEventListener("click", () => discardTile(k));
+        el.appendChild(t);
+      }
+    }
+    const total = handCnt.reduce((a, b) => a + b, 0);
+    $("hand-label").textContent = `YOUR HAND (${total})`;
+  }
+  function renderInfo() {
+    const el = $("mah-info");
+    if (!el || !blind) return;
+    let status;
+    if (winEval) status = `<span style="color:var(--lipstick)">COMPLETE — declare!</span>`;
+    else { const sh = handCnt ? shanten(handCnt) : 8; status = sh <= 0 ? `<span style="color:var(--champagne)">TENPAI</span>` : `${sh} away`; }
+    let yaku = "";
+    if (winEval) yaku = `<div class="mah-yaku">${winEval.keys.map(x => `<span class="yaku-chip${x === "kokushi" ? " yakuman" : ""}">${RUNG[x].name}</span>`).join("")}</div>`;
+    el.innerHTML = `<div><span class="label">Draw</span> <b>${drawsUsed} / ${maxDraws()}</b></div>` +
+      `<div><span class="label">Hand</span> <b>${status}</b></div>` + yaku;
+  }
+  function renderPeek() {
+    const el = $("mah-peek");
+    if (!el) return;
+    if (anyCharmFlag(Rouge.run.current, "peek") && wallDraw && wallDraw.length && (phase === "opening" || phase === "draw"))
+      el.textContent = `Next tile: ${tileLabel(wallDraw[0])}`;
+    else el.textContent = "";
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens edit the wall via a modal of the 34 kinds: The Sweep /
+     Purge pull copies, The Magnet weights a kind to the opening hand, The
+     Smith adds a copy. Between draws (when not mid-discard). */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    const midDiscard = phase === "discard";
+    if (o.use === "target") return onTable && !!blind && !blind.won && !midDiscard;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && !midDiscard && blind.handsLeft > 0;
+    return !midDiscard || !onTable;
+  }
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") consumeOmen(idx, o.apply(run));
+    else if (o.use === "chooser") openChooser(idx);
+    else { targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0, name: o.name }; openWallModal(); }
+  }
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens(); renderLadder(); renderRail();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+  const omenEligible = (kind, k, run) => kind === "remove" ? run.tiles[k] > 0 && wallSize(run.tiles) > MIN_WALL
+    : kind === "load" ? !run.loaded.includes(k) : run.tiles[k] < 8;
+  function openWallModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    $("chooser-wall").classList.add("show");
+    renderWallModal();
+    $("chooser").classList.add("show");
+  }
+  function renderWallModal() {
+    const run = Rouge.run.current;
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = targeting.kind === "remove" ? `Click ${targeting.left} tile to pull a copy from the wall`
+      : targeting.kind === "load" ? `Click ${targeting.left} tile to weight toward your opening hand`
+      : `Click ${targeting.left} tile to forge an extra copy`;
+    const wrap = $("chooser-wall");
+    wrap.innerHTML = "";
+    [[0, 9, "MAN"], [9, 18, "PIN"], [18, 27, "SOU"], [27, 34, "HONORS"]].forEach(([a, b]) => {
+      const row = document.createElement("div"); row.className = "wall-row";
+      for (let k = a; k < b; k++) {
+        const wt = document.createElement("div");
+        const elig = omenEligible(targeting.kind, k, run);
+        wt.className = "wall-tile" + (run.loaded.includes(k) ? " loaded" : "") + (elig ? "" : " no");
+        wt.appendChild(tileEl(k, false));
+        const cnt = document.createElement("div"); cnt.className = "cnt"; cnt.textContent = run.tiles[k]; wt.appendChild(cnt);
+        if (elig) wt.addEventListener("click", () => applyTarget(k));
+        row.appendChild(wt);
+      }
+      wrap.appendChild(row);
+    });
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+  }
+  function applyTarget(k) {
+    const run = Rouge.run.current;
+    if (targeting.kind === "remove") { if (run.tiles[k] > 0) run.tiles[k]--; if (run.tiles[k] === 0) run.loaded = run.loaded.filter(x => x !== k); }
+    else if (targeting.kind === "load") { if (!run.loaded.includes(k)) run.loaded.push(k); }
+    else { if (run.tiles[k] < 8) run.tiles[k]++; }
+    targeting.applied++; targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderWallModal();
+  }
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-wall").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the wall is re-stacked");
+    else renderOmens();
+    syncControls();
+  }
+  function openChooser(idx) {
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-wall").classList.remove("show");
+    const opts = $("chooser-options"); opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => { bumpLevel(run, e.key, 2); $("chooser").classList.remove("show"); consumeOmen(chooserOmenIdx, `${e.name} leveled up`); chooserOmenIdx = null; });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+  /* ---------------- shop ---------------- */
+  /* ---------------- rendering — rail / ladder / blind select ---------------- */
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-hands").textContent = `${blind.handsLeft} / ${blind.handsTotal}`;
+    $("rail-redraws").textContent = `${blind.redrawsLeft} / ${blind.redrawsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ") : "—";
+    $("wall-chip") && ($("wall-chip").textContent = `WALL ${wallDraw ? wallDraw.length : "—"}`);
+  }
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won || phase === "done";
+    $("btn-draw").hidden = lock || phase === "discard" || drawsUsed >= maxDraws();
+    $("btn-win").hidden = lock || !winEval || phase !== "discard";
+    $("btn-redraw").hidden = lock || phase !== "opening" || drawsUsed > 0 || blind.redrawsLeft === 0 || bossId() === "sealedwall";
+    $("btn-redraw").textContent = `Redraw (${blind ? blind.redrawsLeft : 0})`;
+    $("wall-chip").textContent = `WALL ${wallDraw ? wallDraw.length : 0}`;
+  }
+
+  /* ---------------- MAH.simulate — headless balance harness ----------------
+     Bot: redraws hopeless openers (shanten ≥ 4) while redraws remain; each
+     draw, declares a win if the 14 tiles complete with enough yaku, else
+     discards toward the nearest tenpai (min greedy-shanten), tiebreaking by
+     dumping terminals/honors and isolated tiles (a light tanyao lean that
+     keeps a natural yaku reachable). Shop: buys affordable (additive charms
+     left of ×mult); omens thin terminal/honor junk from the wall (Sweep/
+     Purge), markers level, Fresh Tiles held for +1 hand. Logs yaku
+     frequency, hands completed per blind, and bust rate. Restores RNG. */
+  function botPlayHand(run, blindState, boss, log) {
+    let dealt = dealHand(run), cnt = dealt.cnt, wall = dealt.draw;
+    while (boss !== "sealedwall" && blindState.redrawsLeft > 0 && shanten(cnt) >= 4) {
+      blindState.redrawsLeft--; run.stats.redraws++;
+      dealt = dealHand(run); cnt = dealt.cnt; wall = dealt.draw;
+    }
+    let draws = 0; const max = blindState.drawsPerHand;
+    let won = false, gain = 0, winKeys = null, winFacts = null;
+    while (draws < max && wall.length > 0) {
+      const k = wall.shift(); cnt[k]++; draws++;
+      const ev = evalHand(run, blindState, boss, cnt, blindState.censorSuit);
+      if (ev) { won = true; gain = ev.gain; winKeys = ev.keys; winFacts = ev.facts; break; }
+      let bestK = -1, bestSh = 99, bestJunk = -99;
+      for (let d = 0; d < 34; d++) {
+        if (cnt[d] === 0) continue;
+        cnt[d]--;
+        const sh = shanten(cnt);
+        const neighbors = d < 27 ? ((d % 9 > 0 ? cnt[d - 1] : 0) + (d % 9 < 8 ? cnt[d + 1] : 0)) : 0;
+        const junk = (isTermHonor(d) ? 2 : 0) - cnt[d] - neighbors;
+        cnt[d]++;
+        if (sh < bestSh || (sh === bestSh && junk > bestJunk)) { bestSh = sh; bestJunk = junk; bestK = d; }
+      }
+      cnt[bestK]--;
+    }
+    run.stats.hands++;
+    log.hands++;
+    if (won) {
+      run.stats.wins++; if (gain > run.stats.best) run.stats.best = gain;
+      if (boss === "eye") winKeys.forEach(x => blindState.scoredYaku.add(x));
+      winKeys.forEach(x => { log.yaku[x] = (log.yaku[x] || 0) + 1; });
+      log.completed++;
+    } else { run.stats.busts++; log.busts++; }
+    blindState.score += gain;
+    const moneyGained = { n: 0 };
+    const hf = { won, yakuCount: won ? winKeys.length : 0, flush: won && winFacts.flush, kokushi: won && winFacts.kokushi, run, moneyGained };
+    for (const inst of run.charms) CHARMS[inst.id].onHandEnd?.(inst, hf);
+    blindState.handsLeft--;
+  }
+
+  function simOneRun(seed, log) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null], stats: { hands: 0, wins: 0, busts: 0, best: 0, beaten: 0, skips: 0, redraws: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {}, tiles: freshTiles(), loaded: [], boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (c, m) => { if (!c) bugs.push(`${seed}: ${m}`); };
+    let tempoHeld = 0;
+    const junkKind = () => { for (let k = 0; k < 34; k++) if (isTermHonor(k) && run.tiles[k] > 0) return k; return -1; };
+    const useShopOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.riichi ?? 0) >= 4 ? "tanyao" : "riichi", 2);
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "orphan") { bumpLevel(run, "kokushi", 2); bumpLevel(run, "chinitsu", 1); }
+        else if (id === "sweep") { const k = junkKind(); if (k >= 0 && wallSize(run.tiles) > MIN_WALL) run.tiles[k]--; }
+        else if (id === "purge") { for (let n = 0; n < 3; n++) { const k = junkKind(); if (k >= 0 && wallSize(run.tiles) > MIN_WALL) run.tiles[k]--; } }
+        else continue; // magnet/smith/tempo held or sold
+        if (id !== "tempo") run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") { if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) { run.money -= CHARMS[entry.id].cost; run.charms.push(newCharm(entry.id)); } }
+        else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) { run.money -= OMENS[entry.id].cost; run.consumables.push(entry.id); }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useShopOmens();
+      // sell anything the bot can't use well (magnet/smith) to free slots
+      run.consumables = run.consumables.filter(id => { if (id === "magnet" || id === "smith") { run.money += omenSellValue(id); return false; } return true; });
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let hands = HANDS_PER_BLIND + tempoHeld; tempoHeld = 0;
+        let redraws = REDRAWS_PER_BLIND + charmFlag(run, "extraRedraws");
+        let draws = DRAWS_PER_HAND + charmFlag(run, "extraDraws");
+        if (boss === "shorthand") hands = Math.max(1, hands - 1);
+        if (boss === "deadwall") draws = Math.max(4, draws - 5);
+        if (boss === "sealedwall") redraws = 0;
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0, handsTotal: hands, handsLeft: hands,
+          redrawsTotal: redraws, redrawsLeft: redraws, drawsPerHand: draws, won: false, rewardMult: 1, usedTags: [],
+          scoredYaku: new Set(), banned: null, censorSuit: -1 };
+        if (boss === "pitboss") { let best = LADDER[0]; for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e; blindState.banned = best.key; }
+        if (boss === "censor") blindState.censorSuit = ["m", "p", "s"][Rouge.rng.int(0, 2)];
+        log.blinds++;
+        while (blindState.handsLeft > 0 && blindState.score < blindState.target) botPlayHand(run, blindState, boss, log);
+        if (blindState.score >= blindState.target) blindState.won = true;
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won, money: run.money, boss: boss ?? undefined });
+        assert(Number.isFinite(blindState.score) && blindState.score >= 0, `bad score A${ante}/${bi}`);
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        if (run.consumables.includes("tempo")) { tempoHeld += run.consumables.filter(x => x === "tempo").length; run.consumables = run.consumables.filter(x => x !== "tempo"); }
+        shop();
+      }
+    }
+    rec.result = "WIN"; rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    const log = { yaku: {}, hands: 0, completed: 0, busts: 0, blinds: 0 };
+    for (let r = 1; r <= runs; r++) {
+      try { const { rec, bugs } = simOneRun(`SIM-${r}`, log); out.runs.push(rec); out.bugs.push(...bugs); }
+      catch (err) { out.bugs.push(`SIM-${r} crashed: ${err.message}`); }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++; if (b.won) k.won++; k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) { k.ratios.sort((a, b) => a - b); k.median = k.ratios[Math.floor(k.ratios.length / 2)]; k.pass = +(k.won / k.n).toFixed(2); delete k.ratios; }
+    agg.yaku = log.yaku;
+    agg.handsPerBlind = +(log.hands / Math.max(1, log.blinds)).toFixed(1);
+    agg.completedPerBlind = +(log.completed / Math.max(1, log.blinds)).toFixed(2);
+    agg.bustRate = +(log.busts / Math.max(1, log.hands)).toFixed(3);
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-draw").addEventListener("click", drawTile);
+    $("btn-win").addEventListener("click", declareWin);
+    $("btn-redraw").addEventListener("click", redraw);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null; handCnt = null; wallDraw = null; phase = "done";
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed;
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => { $("overlay").classList.remove("show"); blind = null; handCnt = null; wallDraw = null; phase = "done"; Rouge.run.start(""); });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => { if (targeting) { endTargeting(targeting.applied > 0); return; } $("chooser").classList.remove("show"); chooserOmenIdx = null; });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") { if (run) { ensureRunShape(run); if (run.shop) { run.shop = null; Rouge.run.persist(); } } renderBlindSelect(); }
+      if (e.detail.screen === "shop" && run) { ensureRunShape(run); if (!run.shop) rollShop(); renderShop(); renderCharms(); renderOmens(); }
+    });
+  });
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "handsLeft", playWord: "hands", ladderLabel: "Yaku",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           HANDS_PER_BLIND, REDRAWS_PER_BLIND, DRAWS_PER_HAND, MIN_WALL,
+           freshTiles, tileLabel, decomposeAll, isComplete, isKokushi, shanten, evalHand, yakuOfDecomp,
+           sellValue, omenSellValue,
+           get blind() { return blind; }, get hand() { return handCnt; }, get wall() { return wallDraw; },
+           get phase() { return phase; }, get winEval() { return winEval; }, get drawsUsed() { return drawsUsed; },
+           startBlind, skipBlind, drawTile, discardTile, declareWin, redraw, beginHand,
+           cashOut, buyStock, sellCharm, moveCharm, rerollShop, useOmen, sellOmen, simulate };
+})();
+window.MAH = MAH;
+
+/* plug Mahjong Méchant into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:mah",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { hands: 0, wins: 0, busts: 0, best: 0, beaten: 0, skips: 0, redraws: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, tiles: null, loaded: [], boss: null })
+});
+</script>
+</body>
+</html>

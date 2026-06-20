@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slot Syndicate — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .78rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .08rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+
+/* ====================================================================
+   SLOT SYNDICATE — table layer styles
+   ==================================================================== */
+.slot-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+.slot-info { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; padding: var(--space-2); }
+.slot-info .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.slot-info b { font-family: var(--font-display); color: var(--champagne); }
+
+.reels { display: grid; grid-template-columns: repeat(5, 1fr); gap: .45rem; padding: var(--space-2); }
+.reel {
+  display: flex; flex-direction: column; gap: .4rem; position: relative;
+  border: 1px solid transparent; border-radius: var(--radius); padding: .25rem;
+  cursor: pointer; transition: border-color var(--dur-fast);
+}
+.reel.idle { cursor: default; opacity: .5; }
+.reel.held { border-color: var(--champagne); box-shadow: 0 0 9px rgba(239, 217, 167, .5); }
+.reel.jammed { border-color: var(--lipstick); cursor: not-allowed; }
+.reel .reel-tag {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-display); font-size: .52rem; letter-spacing: .1em;
+  background: var(--noir-velvet); padding: 0 .3rem; white-space: nowrap; z-index: 2;
+}
+.reel.held .reel-tag { color: var(--champagne); }
+.reel.jammed .reel-tag { color: var(--lipstick); }
+.reel .nudge-row { display: flex; justify-content: space-between; gap: .2rem; }
+.reel .nudge-row.bottom { margin-top: -.2rem; }
+.nudge-btn { padding: .05rem .35rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); flex: 1; }
+.sym {
+  height: 62px; display: flex; align-items: center; justify-content: center; position: relative;
+  background: var(--noir-velvet); border: 1px solid var(--gold-leaf); border-radius: var(--radius);
+  font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; color: var(--ivory);
+  user-select: none; line-height: 1;
+}
+.sym.bar { font-size: .9rem; letter-spacing: .04em; }
+.sym.low { color: var(--gold-leaf); }
+.sym.high { color: var(--champagne); }
+.sym.crown { color: var(--gold-leaf); text-shadow: 0 0 6px rgba(201, 162, 75, .6); }
+.sym.wild { color: var(--lipstick); border-color: var(--lipstick); }
+.sym.scatter { color: var(--champagne); border-style: double; border-width: 3px; }
+.sym.win { background: var(--crimson-velvet); border-color: var(--champagne); box-shadow: 0 0 9px rgba(239, 217, 167, .55); }
+.sym .nm { position: absolute; bottom: 1px; left: 0; right: 0; text-align: center; font-family: var(--font-body); font-style: normal; font-size: .4rem; letter-spacing: .04em; color: var(--smoke); text-transform: uppercase; }
+
+.reel-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: 0 var(--space-2); }
+.reel-controls .hint { font-style: italic; color: var(--smoke); font-size: .85rem; }
+.slot-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.slot-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 150px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .76rem; letter-spacing: .08em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+
+/* reel-targeting modal (omens) */
+#chooser { display: none; position: fixed; inset: 0; z-index: 11; background: rgba(18,13,10,.85); align-items: center; justify-content: center; }
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 340px; max-width: 720px; max-height: 88vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+#chooser-reels { display: none; flex-direction: column; gap: .4rem; }
+#chooser-reels.show { display: flex; }
+.creel-row { display: flex; gap: .3rem; align-items: center; }
+.creel-row .creel-label { font-family: var(--font-display); font-size: .6rem; letter-spacing: .1em; color: var(--smoke); width: 52px; }
+.creel-syms { display: flex; gap: .25rem; flex-wrap: wrap; }
+.csym { position: relative; cursor: pointer; }
+.csym .mini {
+  width: 30px; height: 38px; display: flex; align-items: center; justify-content: center;
+  background: var(--noir-velvet); border: 1px solid var(--gold-leaf); border-radius: var(--radius);
+  font-family: var(--font-display); font-weight: 700; font-size: 1rem;
+}
+.csym .mini.bar { font-size: .5rem; }
+.csym .mini.low { color: var(--gold-leaf); } .csym .mini.high { color: var(--champagne); }
+.csym .mini.wild { color: var(--lipstick); border-color: var(--lipstick); } .csym .mini.scatter { color: var(--champagne); }
+.csym .cnt { position: absolute; top: -5px; right: -5px; font-size: .55rem; background: var(--crimson-velvet); color: var(--ivory); border-radius: 50%; min-width: 15px; height: 15px; padding: 0 2px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); }
+.csym:hover .mini { outline: 2px solid var(--champagne); }
+.csym.no { opacity: .3; cursor: not-allowed; }
+.csym.no:hover .mini { outline: none; }
+
+/* overlay */
+#overlay { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(18,13,10,.85); align-items: center; justify-content: center; }
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; SLOT SYNDICATE</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Slot <span style="color:var(--lipstick)">Syndicate</span></h1>
+      <p class="flavor">Rig your own machine.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Spins</div><div class="value" id="rail-spins">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Respins</div><div class="value" id="rail-respins">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="slot-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="slot-info panel" id="slot-info"></div>
+
+        <div class="reels panel" id="reels"></div>
+
+        <div class="reel-controls">
+          <button class="primary" id="btn-spin">Spin</button>
+          <button id="btn-respin" hidden>Respin (3)</button>
+          <button class="primary" id="btn-score" hidden>Score</button>
+          <span class="hint" id="slot-hint"></span>
+        </div>
+
+        <div class="slot-result panel">
+          <div>
+            <div id="result-label" class="flavor">Spin five reels; every winning payline and scatter combo stacks.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">A spin's stacked line and scatter wins appear here.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-reels"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>slot-syndicate.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+/* ====================================================================
+   SLOT SYNDICATE — game module (prompt TABLE RULES; supersedes the
+   older spec §3.3). On the shared spine (rouge-spine.js); the
+   Rouge.run.configure() call at the bottom plugs in the save key +
+   initial run state.
+
+   Atomic object: the reel Symbol on the strips. run.reels = 5 ordered
+   strips (the deck). Omens add / remove / reclass / weight symbols on a
+   chosen reel — that strip-editing is the deck-building.
+
+   Play: a 5×3 video slot, 5 fixed paylines (3 rows + V + Λ) scored
+   left-to-right. ALL wins on a spin STACK (every winning line + the
+   scatter combo + the jackpot resolve in ascending rung order and sum;
+   charms hook per event, roulette-style). Each blind grants 12 spins
+   (the attempt budget) and 3 respins (hold-and-respin = the discard
+   analog). Each symbol on a scoring line adds its own chip value
+   (Balatro-style) before the combo base chips × mult.
+   ==================================================================== */
+const SLOT = (() => {
+  const SPINS_PER_BLIND = 12, RESPINS_PER_BLIND = 3;
+  const INTEREST_STEP = 5, INTEREST_CAP = 5;
+  const MIN_REEL = 8, MAX_REEL = 36;   // omen guards: keep each strip dealable, cap inflation
+
+  /* ---------------- symbols (the atomic object) ----------------
+     ids 0–3 low, 4–7 high (7 = Crown, the top symbol), 8 Wild, 9 Scatter.
+     chip = the per-symbol chip value added before the combo base. */
+  const SYM = [
+    { key: "cherry",  name: "Cherry",  glyph: "❖", tier: "low",     chip: 2 },
+    { key: "lemon",   name: "Lemon",   glyph: "◈", tier: "low",     chip: 3 },
+    { key: "plum",    name: "Plum",    glyph: "❂", tier: "low",     chip: 4 },
+    { key: "bell",    name: "Bell",    glyph: "✺", tier: "low",     chip: 5 },
+    { key: "bar",     name: "Bar",     glyph: "BAR",    tier: "high",    chip: 8 },
+    { key: "seven",   name: "Seven",   glyph: "7",      tier: "high",    chip: 12 },
+    { key: "diamond", name: "Diamond", glyph: "◆", tier: "high",    chip: 16 },
+    { key: "crown",   name: "Crown",   glyph: "♛", tier: "high",    chip: 20 },
+    { key: "wild",    name: "Wild",    glyph: "★", tier: "wild",    chip: 0 },
+    { key: "scatter", name: "Scatter", glyph: "✦", tier: "scatter", chip: 6 }
+  ];
+  const CHERRY = 0, BELL = 3, BAR = 4, CROWN = 7, WILD = 8, SCATTER = 9;
+  const isLow = id => id < 4, isHigh = id => id >= 4 && id < 8, isWild = id => id === WILD, isScatter = id => id === SCATTER;
+  const tierClass = id => isWild(id) ? "wild" : isScatter(id) ? "scatter" : id === CROWN ? "crown" : isLow(id) ? "low" : "high";
+
+  /* base machine: 5 identical strips, round-robin spread so windows vary.
+     counts per reel: low 14, high 6, wild 1, scatter 1 = 22. Tuned in the
+     2026-06-16 hardening pass (see balance-report.md). */
+  const BASE_COUNTS = [4, 4, 3, 3, 2, 2, 1, 1, 1, 1];
+  function freshStrip() {
+    const counts = BASE_COUNTS.slice(), strip = [];
+    let more = true;
+    while (more) { more = false; for (let id = 0; id < 10; id++) if (counts[id] > 0) { strip.push(id); counts[id]--; more = true; } }
+    return strip;
+  }
+  function freshReels() { return [0, 1, 2, 3, 4].map(freshStrip); }
+  const windowOf = (strip, stop) => { const L = strip.length; return [strip[stop % L], strip[(stop + 1) % L], strip[(stop + 2) % L]]; };
+
+  /* 5 fixed paylines — index 0 is the middle row (used by The Mechanic) */
+  const LINES = [
+    [1, 1, 1, 1, 1], // middle
+    [0, 0, 0, 0, 0], // top
+    [2, 2, 2, 2, 2], // bottom
+    [0, 1, 2, 1, 0], // V
+    [2, 1, 0, 1, 2]  // caret
+  ];
+
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +1 spin." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder ----------------
+     Weakest → strongest. A payline emits the HIGHEST rung it qualifies
+     for; the scatter combo and the jackpot fire grid-wide. All of a
+     spin's events STACK. Bases tuned for a 12-spin stacking floor. */
+  const LADDER = [
+    { rung: 1,  key: "lowtriple",    name: "Low Triple",   chips: 16,  mult: 1,  up: { c: 8,   m: 1 } },
+    { rung: 2,  key: "hightriple",   name: "High Triple",  chips: 28,  mult: 2,  up: { c: 12,  m: 1 } },
+    { rung: 3,  key: "wildline",     name: "Wild Line",    chips: 44,  mult: 2,  up: { c: 14,  m: 1 } },
+    { rung: 4,  key: "quad",         name: "Quad",         chips: 70,  mult: 3,  up: { c: 22,  m: 2 } },
+    { rung: 5,  key: "scatterpay",   name: "Scatter Pay",  chips: 55,  mult: 3,  up: { c: 18,  m: 2 } },
+    { rung: 6,  key: "quintet",      name: "Quintet",      chips: 110, mult: 5,  up: { c: 30,  m: 2 } },
+    { rung: 7,  key: "wildquintet",  name: "Wild Quintet", chips: 140, mult: 6,  up: { c: 36,  m: 3 } },
+    { rung: 8,  key: "crownline",    name: "Crown Line",   chips: 180, mult: 8,  up: { c: 45,  m: 3 } },
+    { rung: 9,  key: "scatterstorm", name: "Scatter Storm",chips: 200, mult: 10, up: { c: 55,  m: 4 } },
+    { rung: 10, key: "jackpot",      name: "The Jackpot",  chips: 400, mult: 18, up: { c: 100, m: 6 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+  const TRIPLES = new Set(["lowtriple", "hightriple", "wildline"]);
+  const FIVES = new Set(["quintet", "wildquintet", "crownline"]);
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes. onEvent mutates ctx.chips / ctx.mult in
+     STRICT bar order, per scoring event; ctx.ev carries the event facts
+     {key, rung, cls, len, objects, usedWild, tier, allHigh, line}; ctx.spin
+     carries spin-wide facts {noLow, lineCount}. */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat
+    fruitstand: { name: "The Fruit Stand", type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+30 Chips on every Triple (three-of-a-kind line)",
+      onEvent: (i, c) => { if (TRIPLES.has(c.ev.key)) c.chips += 30; } },
+    mint:      { name: "The Mint",         type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+14 Chips per high symbol on a scoring line",
+      onEvent: (i, c) => { c.chips += 14 * c.ev.objects.filter(isHigh).length; } },
+    heavyreel: { name: "Heavy Reels",      type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+20 Chips on every winning line",
+      onEvent: (i, c) => { if (c.ev.line !== undefined) c.chips += 20; } },
+    // scaling
+    collector: { name: "The Collector",    type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per five-of-a-kind scored this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onSpinEnd: (i, e) => { e.events.forEach(ev => { if (FIVES.has(ev.key)) i.state.m += 1; }); } },
+    ratchet:   { name: "The Ratchet",      type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ c: 0 }),
+      desc: s => `+${s.c} Chips on every event (+4 per spin played this run)`,
+      onEvent: (i, c) => { c.chips += i.state.c; },
+      onSpinEnd: i => { i.state.c += 4; } },
+    jackpotdream: { name: "Jackpot Dreams", type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+2 per Crown Line or Jackpot this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onSpinEnd: (i, e) => { e.events.forEach(ev => { if (ev.key === "crownline" || ev.key === "jackpot") i.state.m += 2; }); } },
+    // conditional
+    coldstreak: { name: "Cold Streak",     type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×3 Mult on spins showing no low symbols",
+      onEvent: (i, c) => { if (c.spin.noLow) c.mult *= 3; } },
+    topheavy:  { name: "Top Heavy",        type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "+60 Chips on any all-high scoring line",
+      onEvent: (i, c) => { if (c.ev.line !== undefined && c.ev.allHigh) c.chips += 60; } },
+    wildheart: { name: "Wild at Heart",    type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+5 Mult on any event completed with a Wild",
+      onEvent: (i, c) => { if (c.ev.usedWild) c.mult += 5; } },
+    bellcurve: { name: "Bell Curve",       type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "+40 Chips on every Quad",
+      onEvent: (i, c) => { if (c.ev.key === "quad") c.chips += 40; } },
+    // economy
+    skim:      { name: "The Skim",         type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $1 per Scatter that lands, even when it doesn't pay",
+      onSpinEnd: (i, e) => { if (e.scatterCount > 0) { e.run.money += e.scatterCount; e.moneyGained.n += e.scatterCount; } } },
+    lounge:    { name: "The Lounge",       type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["The Lounge", 3] },
+    vault:     { name: "The Vault",        type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    tipjar:    { name: "The Tip Jar",      type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    // ×mult
+    cartel:    { name: "The Cartel",       type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×4 Mult on any five-of-a-kind",
+      onEvent: (i, c) => { if (FIVES.has(c.ev.key)) c.mult *= 4; } },
+    polish:    { name: "The Polish",       type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every event",
+      onEvent: (i, c) => { c.mult *= 1.5; } },
+    syndicate: { name: "The Syndicate",    type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult on spins with 3 or more winning lines",
+      onEvent: (i, c) => { if (c.spin.lineCount >= 3) c.mult *= 3; } },
+    // utility
+    thumb:     { name: "The Mechanic's Thumb", type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "After the reels stop, nudge one reel ±1 position before scoring",
+      nudge: true },
+    sparereel: { name: "Spare Reel",       type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Respin each blind",
+      extraRespins: 1 },
+    compspin:  { name: "The Comp Spin",    type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+2 Spins each blind",
+      extraSpins: 2 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2);
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] === true ? 0 : (CHARMS[inst.id][flag] ?? 0)), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     Strip-editing is the deck manipulation: The Scrapper / La Grande Casse
+     pull dead symbols, The Smith forges copies (weighting), The Wildmaker
+     reclasses a symbol to a Wild. use kinds: instant / chooser / target (a
+     reel modal showing the 5 strips × symbol counts). */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    petty:       { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money",    tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    scrap:       { name: "The Scrapper",    tier: 1, cost: 4, use: "target", target: { kind: "remove", count: 1 },
+      desc: "Pull one copy of a chosen symbol off a reel forever (thin the dead symbols)" },
+    housemarker: { name: "House Marker",    tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    smith:       { name: "The Smith",       tier: 2, cost: 7, use: "target", target: { kind: "add", count: 1 },
+      desc: "Forge an extra copy of a chosen symbol onto a reel (weight it)" },
+    wildmaker:   { name: "The Wildmaker",   tier: 2, cost: 7, use: "target", target: { kind: "wild", count: 1 },
+      desc: "Turn one chosen symbol on a reel into a Wild" },
+    freshreels:  { name: "Fresh Reels",     tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+1 spin this blind",
+      apply: () => { blind.spinsTotal += 1; blind.spinsLeft += 1; return "+1 spin"; } },
+    grandledger: { name: "Grand Ledger",    tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    casse:       { name: "La Grande Casse", tier: 3, cost: 9, use: "target", target: { kind: "remove", count: 3 },
+      desc: "Pull three copies of chosen symbols off the reels forever" },
+    jackpotseal: { name: "The Jackpot Seal",tier: 3, cost: 9, use: "instant",
+      desc: "The Jackpot levels up twice and Crown Line once",
+      apply: run => { bumpLevel(run, "jackpot", 2); bumpLevel(run, "crownline", 1); return "the syndicate seals the vault"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warps (spec §2.4 + prompt) ---------------- */
+  const BOSSES = {
+    coldreel:   { name: "The Cold Reel",
+      desc: "One random reel shows only low symbols this blind" },
+    jammed:     { name: "The Jammed Reel",
+      desc: "One random reel can't be held or respun" },
+    voidwild:   { name: "The Voided Wild",
+      desc: "Wilds don't substitute this blind" },
+    skimmer:    { name: "The Skimmer",
+      desc: "Scatter combos score nothing this blind" },
+    shortspin:  { name: "The Short Spin", minAnte: 2,
+      desc: "Three fewer spins this blind" },
+    mechanic:   { name: "The Mechanic", minAnte: 2,
+      desc: "Only the middle payline pays this blind" },
+    pitboss:    { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" },
+    velvetrope: { name: "The Velvet Rope", minAnte: 3,
+      desc: "Plain triples are turned away — only Wild Lines and richer combos score" },
+    eye:        { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No scoring event may fire twice this blind" },
+    houseedge:  { name: "The House Edge", minAnte: 3,
+      desc: "Every event's base Mult is halved (minimum 1)" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ====================================================================
+     SCORING CORE — headless, shared by the live table and the simulator
+     ==================================================================== */
+
+  function eventBase(e, run, boss) {
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    let chips = e.chips + lvl * e.up.c;
+    let mult = e.mult + lvl * e.up.m;
+    if (boss === "houseedge") mult = Math.max(1, Math.ceil(mult / 2));
+    return { chips, mult };
+  }
+
+  /* Two left-anchored runs per payline, both with Wild substitution:
+       class run — leftmost cells of one exact class (drives Quad / Quintet /
+         Wild Quintet / Crown Line — "four/five of a kind")
+       tier  run — leftmost cells of one tier, low or high (drives Low/High
+         Triple / Wild Line — "three low/high symbols", class-agnostic)
+     Scatter is not a line symbol and ends both runs. */
+  function lineRuns(syms, voidWild) {
+    let cCls = -1, cWild = false, cLen = 0, cBroke = false;
+    let tier = null, tWild = false, tLen = 0, tBroke = false;
+    for (let i = 0; i < 5; i++) {
+      const s = syms[i];
+      if (isScatter(s)) break;
+      const wild = isWild(s) && !voidWild, deadWild = isWild(s) && voidWild;
+      if (!cBroke) {
+        if (deadWild) cBroke = true;
+        else if (wild) { cWild = true; cLen++; }
+        else if (cCls === -1) { cCls = s; cLen++; }
+        else if (s === cCls) cLen++;
+        else cBroke = true;
+      }
+      if (!tBroke) {
+        const st = isLow(s) ? "low" : "high";
+        if (deadWild) tBroke = true;
+        else if (wild) { tWild = true; tLen++; }
+        else if (tier === null) { tier = st; tLen++; }
+        else if (st === tier) tLen++;
+        else tBroke = true;
+      }
+    }
+    if (cCls === -1) cCls = CROWN;
+    if (tier === null) tier = "high";
+    return { classLen: cLen, classCls: cCls, classWild: cWild, tierLen: tLen, tier, tierWild: tWild };
+  }
+
+  /* evaluate one payline (5 symbol ids, left→right) → its single highest rung, or null. */
+  function evalLine(syms, boss, lineIdx) {
+    const voidWild = boss === "voidwild";
+    if (isScatter(syms[0])) return null;
+    if (isWild(syms[0]) && voidWild) return null;
+    const R = lineRuns(syms, voidWild);
+    let key, objects, usedWild, cls, tier;
+    if (R.classLen >= 5) { cls = R.classCls; tier = isLow(cls) ? "low" : "high"; usedWild = R.classWild; objects = syms.slice(0, 5);
+      key = cls === CROWN ? "crownline" : usedWild ? "wildquintet" : "quintet"; }
+    else if (R.classLen >= 4) { cls = R.classCls; tier = isLow(cls) ? "low" : "high"; usedWild = R.classWild; objects = syms.slice(0, 4); key = "quad"; }
+    else if (R.tierLen >= 3) { cls = -1; tier = R.tier; usedWild = R.tierWild; objects = syms.slice(0, 3);
+      key = usedWild ? "wildline" : (tier === "low" ? "lowtriple" : "hightriple"); }
+    else return null;
+    return { key, rung: RUNG[key].rung, cls, len: objects.length, objects, usedWild, tier, allHigh: tier === "high", line: lineIdx };
+  }
+
+  function detectJackpot(grid, boss) {
+    const voidWild = boss === "voidwild";
+    let cls = -1;
+    const objects = [];
+    for (let r = 0; r < 5; r++) for (let row = 0; row < 3; row++) {
+      const s = grid[r][row];
+      objects.push(s);
+      if (isScatter(s)) return null;
+      if (isWild(s)) { if (voidWild) return null; continue; }
+      if (cls === -1) cls = s; else if (s !== cls) return null;
+    }
+    if (cls === -1) cls = CROWN;
+    return { key: "jackpot", rung: 10, cls, len: 15, objects, usedWild: true, tier: isLow(cls) ? "low" : "high", allHigh: !isLow(cls) };
+  }
+
+  function countScatters(grid) { let n = 0; for (let r = 0; r < 5; r++) for (let row = 0; row < 3; row++) if (isScatter(grid[r][row])) n++; return n; }
+
+  /* score a stopped grid → { gain, events:[{key,name,chips,mult,gain,line,len}], scatterCount, committedKeys }.
+     Pure: reads blindState (eye set) but never mutates it. */
+  function scoreSpin(run, blindState, boss, grid) {
+    let events = [];
+    const paylines = boss === "mechanic" ? [0] : [0, 1, 2, 3, 4];
+    for (const p of paylines) {
+      const syms = LINES[p].map((row, reel) => grid[reel][row]);
+      const ev = evalLine(syms, boss, p);
+      if (ev) events.push(ev);
+    }
+    const scatterCount = countScatters(grid);
+    if (boss !== "skimmer") {
+      if (scatterCount >= 5) events.push({ key: "scatterstorm", rung: 9, cls: SCATTER, len: scatterCount, objects: new Array(scatterCount).fill(SCATTER), usedWild: false, tier: "scatter", allHigh: false });
+      else if (scatterCount >= 3) events.push({ key: "scatterpay", rung: 5, cls: SCATTER, len: scatterCount, objects: new Array(scatterCount).fill(SCATTER), usedWild: false, tier: "scatter", allHigh: false });
+    }
+    const jp = detectJackpot(grid, boss);
+    if (jp) events.push(jp);
+
+    if (boss === "velvetrope") events = events.filter(e => e.key !== "lowtriple" && e.key !== "hightriple");
+    if (boss === "pitboss") events = events.filter(e => e.key !== blindState.banned);
+    events.sort((a, b) => a.rung - b.rung);
+
+    // eye — a rung that has scored on an EARLIER spin can't score again this
+    // blind; within a single spin the stack still resolves in full (the
+    // game's "all wins stack" identity is preserved — a softer read than the
+    // strict per-blind dedupe, tuned in the 2026-06-16 hardening pass).
+    const committed = boss === "eye" ? blindState.scoredEvents : null;
+    const kept = committed ? events.filter(e => !committed.has(e.key)) : events;
+    const noLow = !grid.some(col => col.some(isLow));
+    const lineCount = kept.filter(e => e.line !== undefined).length;
+    const spin = { noLow, lineCount };
+
+    let total = 0; const out = [];
+    for (const e of kept) {
+      const base = eventBase(RUNG[e.key], run, boss);
+      let chips = base.chips;
+      for (const sid of e.objects) chips += SYM[sid].chip;
+      const ctx = { chips, mult: base.mult, ev: e, spin, run };
+      for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx);
+      const gain = Math.floor(ctx.chips * ctx.mult);
+      total += gain;
+      out.push({ key: e.key, name: RUNG[e.key].name, chips: ctx.chips, mult: ctx.mult, gain, line: e.line, len: e.len, objects: e.objects });
+    }
+    return { gain: total, events: out, scatterCount, committedKeys: kept.map(e => e.key), grid };
+  }
+
+  /* commit a scored spin: score, stats, eye set, onSpinEnd charms. Returns moneyGained. */
+  function commitSpin(run, blindState, boss, res) {
+    if (boss === "eye") res.committedKeys.forEach(k => blindState.scoredEvents.add(k));
+    blindState.score += res.gain;
+    run.stats.spins++;
+    const scored = res.gain > 0;
+    if (scored) { run.stats.wins++; if (res.gain > run.stats.best) run.stats.best = res.gain; }
+    else run.stats.dead++;
+    run.stats.lines += res.events.filter(e => e.line !== undefined).length;
+    const moneyGained = { n: 0 };
+    const e = { run, scored, gain: res.gain, events: res.events, scatterCount: res.scatterCount, grid: res.grid, moneyGained };
+    for (const inst of run.charms) CHARMS[inst.id].onSpinEnd?.(inst, e);
+    return moneyGained;
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+  const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+
+  /* ---------------- state ---------------- */
+  let blind = null;        // {idx, target, score, spinsTotal/Left, respinsTotal/Left, banned, jammedReel, coldReel, coldStrip, scoredEvents, won, ...}
+  let spinState = null;    // {stops:[5], grid:[5][3], held:[5], nudgeUsed}
+  let phase = "ready";     // ready | pending | done
+  let winCells = new Set();
+  let lastSeed = "";
+  let targeting = null, chooserOmenIdx = null;
+
+  function effStrip(run, r, boss, bs) {
+    if (boss === "coldreel" && bs && r === bs.coldReel) return bs.coldStrip;
+    return run.reels[r];
+  }
+
+  /* ---------------- blind flow ---------------- */
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { spins: 0, wins: 0, dead: 0, best: 0, beaten: 0, skips: 0, respins: 0, lines: 0 };
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.reels) run.reels = freshReels();
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function makeBlindState(run, idx, boss, extraSpins, extraRespins) {
+    let spins = SPINS_PER_BLIND + extraSpins;
+    let respins = RESPINS_PER_BLIND + extraRespins;
+    if (boss === "shortspin") spins = Math.max(1, spins - 3);
+    const bs = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+      spinsTotal: spins, spinsLeft: spins, respinsTotal: respins, respinsLeft: respins,
+      won: false, rewardMult: 1, usedTags: [], scoredEvents: new Set(),
+      banned: null, jammedReel: -1, coldReel: -1, coldStrip: null };
+    if (boss === "pitboss") {
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      bs.banned = best.key;
+    }
+    if (boss === "jammed") bs.jammedReel = Rouge.rng.int(0, 4);
+    if (boss === "coldreel") {
+      bs.coldReel = Rouge.rng.int(0, 4);
+      const low = run.reels[bs.coldReel].filter(isLow);
+      bs.coldStrip = low.length >= 3 ? low : [CHERRY, 1, 2, BELL];
+    }
+    return bs;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0);
+    const boss = idx === 2 ? run.boss : null;
+    let extraSpins = charmFlag(run, "extraSpins");
+    const usedTags = [];
+    if (run.activeTags.includes("tempo")) { extraSpins += 1; usedTags.push("tempo"); }
+    let rewardMult = 1;
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    blind = makeBlindState(run, idx, boss, extraSpins, charmFlag(run, "extraRespins"));
+    blind.rewardMult = rewardMult; blind.usedTags = usedTags;
+    const bb = $("boss-banner");
+    if (boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9818; <b>${BOSSES[boss].name}</b> &mdash; ${BOSSES[boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "") +
+        (blind.jammedReel >= 0 ? ` (<b>reel ${blind.jammedReel + 1}</b>)` : "") +
+        (blind.coldReel >= 0 ? ` (<b>reel ${blind.coldReel + 1}</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    $("win-banner").classList.remove("show"); $("win-banner").innerHTML = "";
+    newSpin(true);
+    renderCharms(); renderOmens(); renderLadder(); renderRail();
+    Rouge.router.go("table");
+  }
+
+  function newSpin() {
+    spinState = null; phase = "ready"; winCells = new Set();
+    $("result-label").textContent = `Spin ${blind.spinsTotal - blind.spinsLeft + 1} of ${blind.spinsTotal} — pull the reels.`;
+    $("result-gain").textContent = "";
+    $("breakdown-list").innerHTML = '<li class="flavor">Every winning line and scatter combo stacks.</li>';
+    renderAll();
+  }
+
+  function renderAll() { renderReels(); renderInfo(); renderRail(); syncControls(); }
+
+  /* ---------------- the Spin — live flow ---------------- */
+  function spin() {
+    if (!blind || phase !== "ready" || blind.won || blind.spinsLeft <= 0) return;
+    const run = Rouge.run.current, boss = bossId();
+    const stops = [], grid = [];
+    for (let r = 0; r < 5; r++) {
+      const strip = effStrip(run, r, boss, blind);
+      const stop = Rouge.rng.int(0, strip.length - 1);
+      stops.push(stop); grid.push(windowOf(strip, stop));
+    }
+    spinState = { stops, grid, held: [false, false, false, false, false], nudgeUsed: false };
+    phase = "pending";
+    Rouge.audio.play("spin");
+    Rouge.run.persist();
+    renderPreview();
+    renderAll();
+  }
+
+  function toggleHold(r) {
+    if (phase !== "pending" || !spinState) return;
+    const boss = bossId();
+    if (boss === "jammed" && r === blind.jammedReel) return;
+    spinState.held[r] = !spinState.held[r];
+    renderReels(); syncControls();
+  }
+
+  function respin() {
+    if (!blind || phase !== "pending" || !spinState || blind.respinsLeft <= 0) return;
+    const run = Rouge.run.current, boss = bossId();
+    for (let r = 0; r < 5; r++) {
+      if (spinState.held[r]) continue;
+      if (boss === "jammed" && r === blind.jammedReel) continue;
+      const strip = effStrip(run, r, boss, blind);
+      const stop = Rouge.rng.int(0, strip.length - 1);
+      spinState.stops[r] = stop; spinState.grid[r] = windowOf(strip, stop);
+    }
+    blind.respinsLeft--; run.stats.respins++; spinState.nudgeUsed = false;
+    Rouge.audio.play("spin");
+    Rouge.run.persist();
+    renderPreview(); renderAll();
+  }
+
+  function nudgeReel(r, d) {
+    if (phase !== "pending" || !spinState || spinState.nudgeUsed) return;
+    const run = Rouge.run.current, boss = bossId();
+    if (!anyCharmFlag(run, "nudge")) return;
+    if (boss === "jammed" && r === blind.jammedReel) return;
+    const strip = effStrip(run, r, boss, blind), L = strip.length;
+    spinState.stops[r] = ((spinState.stops[r] + d) % L + L) % L;
+    spinState.grid[r] = windowOf(strip, spinState.stops[r]);
+    spinState.nudgeUsed = true;
+    Rouge.audio.play("chip");
+    renderPreview(); renderAll();
+  }
+
+  function buildWinCells(events, grid) {
+    const cells = new Set();
+    for (const e of events) {
+      if (e.line !== undefined) { for (let r = 0; r < e.len; r++) cells.add(r + "," + LINES[e.line][r]); }
+      else if (e.key === "jackpot") { for (let r = 0; r < 5; r++) for (let row = 0; row < 3; row++) cells.add(r + "," + row); }
+      else { for (let r = 0; r < 5; r++) for (let row = 0; row < 3; row++) if (isScatter(grid[r][row])) cells.add(r + "," + row); }
+    }
+    return cells;
+  }
+
+  function renderPreview() {
+    if (!spinState) { winCells = new Set(); return; }
+    const res = scoreSpin(Rouge.run.current, blind, bossId(), spinState.grid);
+    winCells = buildWinCells(res.events, spinState.grid);
+    $("result-label").innerHTML = res.events.length
+      ? `Pending — ${res.events.length} win${res.events.length > 1 ? "s" : ""}, projected <b>+${fmt(res.gain)}</b>. Hold reels &amp; Respin, or Score.`
+      : "Pending — no winning lines. Hold reels &amp; Respin, or Score for nothing.";
+    $("result-gain").textContent = "";
+    renderBreakdown(res, { n: 0 }, true);
+  }
+
+  function score() {
+    if (!blind || phase !== "pending" || !spinState || blind.won) return;
+    const run = Rouge.run.current, boss = bossId();
+    const res = scoreSpin(run, blind, boss, spinState.grid);
+    const mg = commitSpin(run, blind, boss, res);
+    winCells = buildWinCells(res.events, spinState.grid);
+    blind.spinsLeft--;
+    phase = "done";
+    if (res.gain > 0) Rouge.audio.play("win");
+    renderBreakdown(res, mg, false);
+    $("result-label").textContent = res.gain > 0 ? "Reels scored — wins stacked." : "Dead spin — no lines paid.";
+    $("result-gain").textContent = `${res.gain > 0 ? "+" + fmt(res.gain) : "+0"}${mg.n ? ` · +$${mg.n}` : ""}`;
+    renderReels(); renderInfo(); renderRail(); renderCharms();
+    Rouge.run.persist();
+    if (blind.score >= blind.target && !blind.won) { winBlind(); syncControls(); return; }
+    if (blind.spinsLeft === 0) { syncControls(); loseRun(); return; }
+    syncControls();
+    setTimeout(() => { if (Rouge.run.current && blind && !blind.won && blind.spinsLeft > 0) newSpin(); }, Rouge.speed.ms(850));
+  }
+
+  function renderBreakdown(res, mg, preview) {
+    const el = $("breakdown-list");
+    if (!el) return;
+    if (res.events.length === 0) { el.innerHTML = `<li class="flavor">${preview ? "No winning lines yet." : "No winning lines — the reels come up dead."}</li>`; return; }
+    el.innerHTML = res.events.map(l =>
+      `<li><span class="ev">${l.name}${l.line !== undefined ? ` · line ${l.line + 1}` : ""}</span>` +
+      `<span class="math"><span class="c">${fmt(Math.round(l.chips))}</span> × <span class="m">${fmtMult(l.mult)}</span> = <b>${fmt(l.gain)}</b></span></li>`
+    ).join("") + `<li style="border-top:1px solid rgba(201,162,75,.3);margin-top:.2rem"><span class="ev">${preview ? "Projected" : "Spin total"}</span><span class="math"><b>${fmt(res.gain)}</b></span></li>`;
+  }
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. The game
+     wires RougeUI.configure() at the bottom of this module. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. The Syndicate owns every reel in the house."
+      : `The reels went cold — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed], ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`], ["Blinds beaten", run.stats.beaten], ["Blinds skipped", run.stats.skips],
+      ["Spins played", run.stats.spins], ["Scoring spins", run.stats.wins], ["Dead spins", run.stats.dead],
+      ["Respins used", run.stats.respins], ["Best spin", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- rendering — reels ---------------- */
+  function symCell(id) {
+    const el = document.createElement("div");
+    el.className = "sym " + tierClass(id) + (id === BAR ? " bar" : "");
+    el.innerHTML = `<span>${SYM[id].glyph}</span><span class="nm">${SYM[id].name}</span>`;
+    return el;
+  }
+  function renderReels() {
+    const wrap = $("reels");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    const run = Rouge.run.current, boss = bossId();
+    const idle = !spinState;
+    const nudgeOn = phase === "pending" && spinState && !spinState.nudgeUsed && anyCharmFlag(run, "nudge");
+    for (let r = 0; r < 5; r++) {
+      const col = document.createElement("div");
+      const jam = boss === "jammed" && blind && r === blind.jammedReel;
+      const held = spinState && spinState.held[r];
+      col.className = "reel" + (idle ? " idle" : "") + (held ? " held" : "") + (jam ? " jammed" : "");
+      if (held) { const t = document.createElement("div"); t.className = "reel-tag"; t.textContent = "HELD"; col.appendChild(t); }
+      else if (jam) { const t = document.createElement("div"); t.className = "reel-tag"; t.textContent = "JAMMED"; col.appendChild(t); }
+      if (nudgeOn && !jam) {
+        const nr = document.createElement("div"); nr.className = "nudge-row";
+        const up = document.createElement("button"); up.className = "nudge-btn"; up.innerHTML = "&#9650;"; up.title = "Nudge up one position";
+        up.addEventListener("click", e => { e.stopPropagation(); nudgeReel(r, -1); });
+        nr.appendChild(up); col.appendChild(nr);
+      }
+      let cells;
+      if (spinState) cells = spinState.grid[r];
+      else { const strip = effStrip(run, r, boss, blind); cells = windowOf(strip, r * 3 % strip.length); }
+      for (let row = 0; row < 3; row++) {
+        const cell = symCell(cells[row]);
+        if (winCells.has(r + "," + row)) cell.classList.add("win");
+        col.appendChild(cell);
+      }
+      if (nudgeOn && !jam) {
+        const nr = document.createElement("div"); nr.className = "nudge-row bottom";
+        const dn = document.createElement("button"); dn.className = "nudge-btn"; dn.innerHTML = "&#9660;"; dn.title = "Nudge down one position";
+        dn.addEventListener("click", e => { e.stopPropagation(); nudgeReel(r, 1); });
+        nr.appendChild(dn); col.appendChild(nr);
+      }
+      if (phase === "pending" && !jam) col.addEventListener("click", () => toggleHold(r));
+      wrap.appendChild(col);
+    }
+  }
+  function renderInfo() {
+    const el = $("slot-info");
+    if (!el || !blind) return;
+    let status;
+    if (phase === "ready") status = `<span style="color:var(--champagne)">Ready to spin</span>`;
+    else if (phase === "pending") status = (winCells.size ? `<span style="color:var(--lipstick)">PENDING — wins lit</span>` : `<span class="flavor">PENDING — no wins yet</span>`);
+    else status = `<span class="flavor">Scored</span>`;
+    el.innerHTML = `<div><span class="label">Spins</span> <b>${blind.spinsLeft} / ${blind.spinsTotal}</b></div>` +
+      `<div><span class="label">Respins</span> <b>${blind.respinsLeft} / ${blind.respinsTotal}</b></div>` +
+      `<div><span class="label">Status</span> <b>${status}</b></div>`;
+  }
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won;
+    const spinBtn = $("btn-spin"), respinBtn = $("btn-respin"), scoreBtn = $("btn-score"), hint = $("slot-hint");
+    spinBtn.hidden = lock || phase !== "ready";
+    spinBtn.disabled = !blind || blind.spinsLeft <= 0;
+    respinBtn.hidden = lock || phase !== "pending" || blind.respinsLeft <= 0;
+    respinBtn.textContent = `Respin (${blind ? blind.respinsLeft : 0})`;
+    scoreBtn.hidden = lock || phase !== "pending";
+    if (hint) hint.textContent = phase === "pending"
+      ? (blind.respinsLeft > 0 ? "Click reels to HOLD, then Respin — or Score." : "No respins left — Score the reels.")
+      : phase === "ready" ? "" : "";
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens edit the reel strips via a modal of the 5 strips ×
+     symbol counts: Scrapper / Casse pull copies, Smith adds a copy
+     (weighting), Wildmaker reclasses a symbol to a Wild. */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    const midSpin = phase === "pending";
+    if (o.use === "target") return onTable && !!blind && !blind.won && !midSpin;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && !midSpin && blind.spinsLeft > 0;
+    return !midSpin || !onTable;
+  }
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") consumeOmen(idx, o.apply(run));
+    else if (o.use === "chooser") openChooser(idx);
+    else { targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0, name: o.name }; openReelModal(); }
+  }
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens(); renderLadder(); renderRail(); renderInfo();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+  const symCount = (reel, s) => reel.reduce((n, x) => n + (x === s ? 1 : 0), 0);
+  function omenEligible(kind, r, s, run) {
+    const reel = run.reels[r];
+    if (kind === "remove") return symCount(reel, s) > 0 && reel.length > MIN_REEL;
+    if (kind === "wild") return s !== WILD && s !== SCATTER && symCount(reel, s) > 0;
+    return reel.length < MAX_REEL; // add
+  }
+  function openReelModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    $("chooser-reels").classList.add("show");
+    renderReelModal();
+    $("chooser").classList.add("show");
+  }
+  function renderReelModal() {
+    const run = Rouge.run.current;
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = targeting.kind === "remove" ? `Click ${targeting.left} more symbol to pull a copy off its reel`
+      : targeting.kind === "wild" ? `Click ${targeting.left} more symbol to turn it into a Wild`
+      : `Click ${targeting.left} more symbol to forge an extra copy`;
+    const wrap = $("chooser-reels");
+    wrap.innerHTML = "";
+    for (let r = 0; r < 5; r++) {
+      const row = document.createElement("div"); row.className = "creel-row";
+      const lab = document.createElement("div"); lab.className = "creel-label"; lab.textContent = `REEL ${r + 1}`; row.appendChild(lab);
+      const syms = document.createElement("div"); syms.className = "creel-syms";
+      for (let s = 0; s < 10; s++) {
+        const cnt = symCount(run.reels[r], s);
+        if (cnt === 0 && targeting.kind !== "add") continue;
+        const elig = omenEligible(targeting.kind, r, s, run);
+        const cs = document.createElement("div"); cs.className = "csym" + (elig ? "" : " no");
+        cs.innerHTML = `<div class="mini ${tierClass(s)}${s === BAR ? " bar" : ""}">${SYM[s].glyph}</div>` + (cnt ? `<div class="cnt">${cnt}</div>` : "");
+        cs.title = SYM[s].name;
+        if (elig) cs.addEventListener("click", () => applyTarget(r, s));
+        syms.appendChild(cs);
+      }
+      row.appendChild(syms); wrap.appendChild(row);
+    }
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+  }
+  function applyTarget(r, s) {
+    const run = Rouge.run.current, reel = run.reels[r];
+    if (targeting.kind === "remove") { const i = reel.indexOf(s); if (i >= 0 && reel.length > MIN_REEL) reel.splice(i, 1); }
+    else if (targeting.kind === "wild") { const i = reel.indexOf(s); if (i >= 0) reel[i] = WILD; }
+    else { if (reel.length < MAX_REEL) reel.push(s); }
+    targeting.applied++; targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderReelModal();
+  }
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-reels").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the strips are re-cut");
+    else renderOmens();
+    syncControls();
+  }
+  function openChooser(idx) {
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-reels").classList.remove("show");
+    const opts = $("chooser-options"); opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => { bumpLevel(run, e.key, 2); $("chooser").classList.remove("show"); consumeOmen(chooserOmenIdx, `${e.name} leveled up`); chooserOmenIdx = null; });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+  /* ---------------- rendering — rail (ladder + blind-select are in rouge-engine.js) ---------------- */
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-spins").textContent = `${blind.spinsLeft} / ${blind.spinsTotal}`;
+    $("rail-respins").textContent = `${blind.respinsLeft} / ${blind.respinsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ") : "—";
+  }
+
+  /* ---------------- SLOT.simulate — headless balance harness ----------------
+     Bot: each spin, rolls, then while respins remain and its best potential
+     line is < 5 long, holds the reels feeding that line and respins the rest
+     (the prompt's bot). With The Mechanic's Thumb it greedily nudges one reel
+     ±1 if it raises the score. Logs line-hit frequency per rung, scoring
+     spins per spin, and payout per blind vs target. Restores RNG. */
+  function bestLineTarget(grid, boss) {
+    const voidWild = boss === "voidwild";
+    const lines = boss === "mechanic" ? [0] : [0, 1, 2, 3, 4];
+    let best = null;
+    for (const p of lines) {
+      const rowOf = r => LINES[p][r];
+      const cand = new Set();
+      for (let r = 0; r < 5; r++) { const s = grid[r][rowOf(r)]; if (!isScatter(s) && !isWild(s)) cand.add(s); }
+      if (cand.size === 0) cand.add(CROWN);
+      for (const c of cand) {
+        const reels = new Set(); let cnt = 0;
+        for (let r = 0; r < 5; r++) { const s = grid[r][rowOf(r)]; if (s === c || (isWild(s) && !voidWild)) { reels.add(r); cnt++; } }
+        const val = cnt * 100 + SYM[c].chip + (isHigh(c) ? 25 : 0);
+        if (cnt >= 2 && (!best || val > best.val)) best = { reels, len: cnt, cls: c, val, line: p };
+      }
+    }
+    return best;
+  }
+
+  function botSpin(run, bs, boss, log) {
+    const stops = [], grid = [];
+    for (let r = 0; r < 5; r++) { const strip = effStrip(run, r, boss, bs); const stop = Rouge.rng.int(0, strip.length - 1); stops.push(stop); grid.push(windowOf(strip, stop)); }
+    while (bs.respinsLeft > 0) {
+      const target = bestLineTarget(grid, boss);
+      if (!target || target.len >= 5) break;
+      let changed = false;
+      for (let r = 0; r < 5; r++) {
+        if (target.reels.has(r)) continue;
+        if (boss === "jammed" && r === bs.jammedReel) continue;
+        const strip = effStrip(run, r, boss, bs); const stop = Rouge.rng.int(0, strip.length - 1);
+        stops[r] = stop; grid[r] = windowOf(strip, stop); changed = true;
+      }
+      bs.respinsLeft--; run.stats.respins++;
+      if (!changed) break;
+    }
+    if (anyCharmFlag(run, "nudge")) {
+      let best = scoreSpin(run, bs, boss, grid).gain, bestR = -1, bestD = 0;
+      for (let r = 0; r < 5; r++) {
+        if (boss === "jammed" && r === bs.jammedReel) continue;
+        const strip = effStrip(run, r, boss, bs), L = strip.length;
+        for (const d of [-1, 1]) { const ns = ((stops[r] + d) % L + L) % L; const g2 = grid.slice(); g2[r] = windowOf(strip, ns); const gain = scoreSpin(run, bs, boss, g2).gain; if (gain > best) { best = gain; bestR = r; bestD = d; } }
+      }
+      if (bestR >= 0) { const strip = effStrip(run, bestR, boss, bs), L = strip.length; stops[bestR] = ((stops[bestR] + bestD) % L + L) % L; grid[bestR] = windowOf(strip, stops[bestR]); }
+    }
+    const res = scoreSpin(run, bs, boss, grid);
+    commitSpin(run, bs, boss, res);
+    log.spins++; if (res.gain > 0) log.scoringSpins++; else log.zeroSpins++;
+    res.events.forEach(e => { log.lineHits[e.key] = (log.lineHits[e.key] || 0) + 1; });
+    bs.spinsLeft--;
+  }
+
+  function simOneRun(seed, log) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null], stats: { spins: 0, wins: 0, dead: 0, best: 0, beaten: 0, skips: 0, respins: 0, lines: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {}, reels: freshReels(), boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (c, m) => { if (!c) bugs.push(`${seed}: ${m}`); };
+    let tempoHeld = 0;
+    // bot deck-thinning: pull a low symbol off the reel that has the most of it (thin toward higher lines)
+    const thinReel = () => {
+      let bR = -1, bS = -1, bC = 0;
+      for (let r = 0; r < 5; r++) if (run.reels[r].length > MIN_REEL) for (let s = 0; s < 4; s++) { const c = symCount(run.reels[r], s); if (c > bC) { bC = c; bR = r; bS = s; } }
+      if (bR >= 0) { const i = run.reels[bR].indexOf(bS); if (i >= 0) run.reels[bR].splice(i, 1); }
+    };
+    const useShopOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.lowtriple ?? 0) >= 4 ? "hightriple" : "lowtriple", 2);
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "jackpotseal") { bumpLevel(run, "jackpot", 2); bumpLevel(run, "crownline", 1); }
+        else if (id === "scrap") thinReel();
+        else if (id === "casse") { for (let n = 0; n < 3; n++) thinReel(); }
+        else continue; // smith / wildmaker / freshreels held or sold
+        if (id !== "freshreels") run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") { if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) { run.money -= CHARMS[entry.id].cost; run.charms.push(newCharm(entry.id)); } }
+        else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) { run.money -= OMENS[entry.id].cost; run.consumables.push(entry.id); }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useShopOmens();
+      run.consumables = run.consumables.filter(id => { if (id === "smith" || id === "wildmaker") { run.money += omenSellValue(id); return false; } return true; });
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        const bs = makeBlindState(run, bi, boss, charmFlag(run, "extraSpins") + tempoHeld, charmFlag(run, "extraRespins"));
+        tempoHeld = 0;
+        log.blinds++;
+        while (bs.spinsLeft > 0 && bs.score < bs.target) botSpin(run, bs, boss, log);
+        if (bs.score >= bs.target) bs.won = true;
+        rec.blinds.push({ ante, blind: bi, target: bs.target, score: bs.score,
+          ratio: +(bs.score / bs.target).toFixed(3), won: bs.won, money: run.money, boss: boss ?? undefined });
+        assert(Number.isFinite(bs.score) && bs.score >= 0, `bad score A${ante}/${bi}`);
+        if (!bs.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, bs);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        if (run.consumables.includes("freshreels")) { tempoHeld += run.consumables.filter(x => x === "freshreels").length; run.consumables = run.consumables.filter(x => x !== "freshreels"); }
+        shop();
+      }
+    }
+    rec.result = "WIN"; rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    const log = { lineHits: {}, spins: 0, scoringSpins: 0, zeroSpins: 0, blinds: 0 };
+    for (let r = 1; r <= runs; r++) {
+      try { const { rec, bugs } = simOneRun(`SIM-${r}`, log); out.runs.push(rec); out.bugs.push(...bugs); }
+      catch (err) { out.bugs.push(`SIM-${r} crashed: ${err.message}`); }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {}, byBoss: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++; if (b.won) k.won++; k.ratios.push(b.ratio);
+        if (b.boss) { const bk = (agg.byBoss[b.boss] ??= { n: 0, won: 0 }); bk.n++; if (b.won) bk.won++; }
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) { k.ratios.sort((a, b) => a - b); k.median = k.ratios[Math.floor(k.ratios.length / 2)]; k.pass = +(k.won / k.n).toFixed(2); delete k.ratios; }
+    for (const b of Object.keys(agg.byBoss)) agg.byBoss[b] = +(agg.byBoss[b].won / agg.byBoss[b].n).toFixed(2);
+    agg.lineHits = log.lineHits;
+    agg.scoringPerSpin = +(log.scoringSpins / Math.max(1, log.spins)).toFixed(3);
+    agg.zeroRate = +(log.zeroSpins / Math.max(1, log.spins)).toFixed(3);
+    agg.spinsPerBlind = +(log.spins / Math.max(1, log.blinds)).toFixed(1);
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-spin").addEventListener("click", spin);
+    $("btn-respin").addEventListener("click", respin);
+    $("btn-score").addEventListener("click", score);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null; spinState = null; phase = "ready"; winCells = new Set();
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed;
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => { $("overlay").classList.remove("show"); blind = null; spinState = null; phase = "ready"; Rouge.run.start(""); });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => { if (targeting) { endTargeting(targeting.applied > 0); return; } $("chooser").classList.remove("show"); chooserOmenIdx = null; });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") { if (run) { ensureRunShape(run); if (run.shop) { run.shop = null; Rouge.run.persist(); } } renderBlindSelect(); }
+      if (e.detail.screen === "shop" && run) { ensureRunShape(run); if (!run.shop) rollShop(); renderShop(); renderCharms(); renderOmens(); }
+    });
+  });
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "spinsLeft", playWord: "spins", ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           SPINS_PER_BLIND, RESPINS_PER_BLIND, MIN_REEL, MAX_REEL, SYM, LINES,
+           freshReels, freshStrip, windowOf, evalLine, detectJackpot, scoreSpin, eventBase,
+           sellValue, omenSellValue,
+           get blind() { return blind; }, get spinState() { return spinState; }, get phase() { return phase; },
+           startBlind, skipBlind, spin, respin, score, toggleHold, nudgeReel,
+           cashOut, buyStock, sellCharm, moveCharm, rerollShop, useOmen, sellOmen, simulate };
+})();
+window.SLOT = SLOT;
+
+/* plug Slot Syndicate into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:slot",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { spins: 0, wins: 0, dead: 0, best: 0, beaten: 0, skips: 0, respins: 0, lines: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, reels: null, boss: null })
+});
+</script>
+</body>
+</html>

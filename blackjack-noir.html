@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackjack Noir — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .8rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .1rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+/* ====================================================================
+   BLACKJACK NOIR — table layer styles
+   ==================================================================== */
+.bj-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.bj-felt { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2); }
+.bj-row { display: flex; align-items: flex-start; gap: var(--space-2); min-height: 80px; }
+.bj-row .who {
+  font-family: var(--font-display); font-size: .7rem; letter-spacing: .14em;
+  color: var(--smoke); width: 72px; text-align: right; flex: 0 0 72px; padding-top: 1.6rem;
+}
+.bj-cards { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; }
+.bj-total {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+  color: var(--gold-leaf); min-width: 4.6rem; text-align: center; align-self: center;
+  border: 1px solid rgba(201,162,75,.45); border-radius: var(--radius); padding: .15rem .4rem;
+}
+.bj-total.bust { color: var(--lipstick); border-color: var(--lipstick); }
+.bj-total.bj { color: var(--champagne); box-shadow: 0 0 8px rgba(239,217,167,.5); }
+.pcard {
+  width: 52px; height: 72px; border-radius: 4px; position: relative;
+  background: var(--ivory); border: 1px solid var(--gold-leaf);
+  font-family: var(--font-display); font-weight: 700;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--noir-velvet);
+  animation: cardIn var(--dur-med) ease-out;
+  box-shadow: 0 2px 5px rgba(0,0,0,.6);
+}
+@keyframes cardIn { from { opacity: 0; transform: translateY(-12px) rotate(-4deg); } to { opacity: 1; } }
+.pcard .rk { font-size: 1.15rem; line-height: 1; }
+.pcard .st { font-size: 1rem; line-height: 1.2; }
+.pcard.red { color: var(--crimson-velvet); }
+.pcard.back {
+  background: var(--crimson-velvet); border-color: var(--gold-leaf); color: var(--gold-leaf);
+  background-image: repeating-linear-gradient(45deg, rgba(201,162,75,.25) 0 4px, transparent 4px 9px);
+}
+.pcard.back .rk { font-size: 1.4rem; }
+.bj-hand-wrap { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+.bj-hand { display: flex; align-items: center; gap: var(--space-2); border: 1px solid transparent; border-radius: var(--radius); padding: .15rem .3rem; }
+.bj-hand.live { border-color: rgba(239,217,167,.7); background: rgba(201,162,75,.07); }
+.bj-hand .htag {
+  font-family: var(--font-display); font-size: .62rem; letter-spacing: .1em; color: var(--smoke);
+  text-transform: uppercase; min-width: 3.4rem;
+}
+.bj-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.bj-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 150px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.bj-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.bj-controls .shoe-chip { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); margin-left: auto; }
+
+/* card chooser / targeting modal */
+#chooser {
+  display: none; position: fixed; inset: 0; z-index: 11;
+  background: rgba(18, 13, 10, .85); align-items: center; justify-content: center;
+}
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 300px; max-width: 720px; max-height: 86vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-cards { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; }
+#chooser-cards .pcard { cursor: pointer; animation: none; }
+#chooser-cards .pcard:hover { outline: 2px solid var(--champagne); transform: translateY(-3px); }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+
+/* overlay (run over / victory) */
+#overlay {
+  display: none; position: fixed; inset: 0; z-index: 10;
+  background: rgba(18, 13, 10, .85);
+  align-items: center; justify-content: center;
+}
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; BLACKJACK NOIR</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Blackjack <span style="color:var(--lipstick)">Noir</span></h1>
+      <p class="flavor">Beat a house that cheats first.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Hands</div><div class="value" id="rail-hands">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Redeals</div><div class="value" id="rail-redeals">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="bj-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="bj-felt panel">
+          <div class="bj-row">
+            <div class="who">DEALER</div>
+            <div class="bj-hand-wrap"><div class="bj-hand" id="dealer-hand">
+              <div class="bj-cards" id="dealer-cards"></div>
+              <div class="bj-total" id="dealer-total" hidden></div>
+            </div></div>
+          </div>
+          <div class="bj-row">
+            <div class="who">YOU</div>
+            <div class="bj-hand-wrap" id="player-hands"></div>
+          </div>
+        </div>
+
+        <div class="bj-result panel">
+          <div>
+            <div id="result-label" class="flavor">The shoe is fresh. Deal when ready.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">Event breakdown appears here after each hand.</li></ul></div>
+        <div class="bj-controls">
+          <button class="primary" id="btn-deal">Deal</button>
+          <button id="btn-hit" disabled>Hit</button>
+          <button id="btn-stand" disabled>Stand</button>
+          <button id="btn-double" disabled>Double</button>
+          <button id="btn-split" disabled>Split</button>
+          <button id="btn-redeal" disabled>Redeal (3)</button>
+          <span class="shoe-chip" id="shoe-chip">SHOE 52</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-cards"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>blackjack-noir.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+
+/* ====================================================================
+   BLACKJACK NOIR — game module (spec.md §3.2, revised ladder)
+   Atomic object: the Card (the 52-card shoe is the deck; omens
+   manipulate it now, enhancements/seals attach to it later).
+   Play: the Deal — 4 hands + 3 redeals per blind, dealer stands on
+   all 17s, shoe reshuffles when empty.
+   ==================================================================== */
+const BJ = (() => {
+  const HANDS_PER_BLIND = 4, REDEALS_PER_BLIND = 3;
+  const INTEREST_STEP = 5, INTEREST_CAP = 5; // $1 per $5 held, cap $5 (spec §2.7)
+  const MIN_POOL = 24, MAX_POOL = 78;        // La Mort / Duplicator guards
+  const DEALER_DELAY = 550;                  // ms per dealer draw, divided by speed
+
+  /* ---------------- cards ----------------
+     Pool entries: {id, r, s} — r 1=A … 11=J 12=Q 13=K; s 0=♠ 1=♣ 2=♥ 3=♦.
+     The shoe is an array of pool ids; hands hold pool refs, so omens that
+     re-suit a card are visible everywhere instantly. */
+  const SUITS = ["♠", "♣", "♥", "♦"]; // ♠ ♣ ♥ ♦
+  const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const rankName = r => RANKS[r - 1];
+  const isNoirSuit = s => s <= 1;            // spades & clubs
+  const isFace = r => r >= 11;
+
+  function freshPool() {
+    const pool = [];
+    let id = 1;
+    for (let s = 0; s < 4; s++)
+      for (let r = 1; r <= 13; r++) pool.push({ id: id++, r, s });
+    return pool;
+  }
+
+  function cardChip(card, boss) {           // chip value = rank, faces 10, ace 11
+    if (boss === "faceless" && isFace(card.r)) return 0;
+    return card.r === 1 ? 11 : Math.min(10, card.r);
+  }
+
+  function handTotal(cards, boss) {         // {total, soft}; Marked Deck pins aces to 1
+    let total = 0, aces = 0;
+    for (const c of cards) {
+      if (c.r === 1) { aces++; total += 1; }
+      else total += Math.min(10, c.r);
+    }
+    let soft = false;
+    if (boss !== "marked" && aces > 0 && total + 10 <= 21) { total += 10; soft = true; }
+    return { total, soft };
+  }
+  const totalOf = (cards, boss) => handTotal(cards, boss).total;
+  const isNatural = (hand, boss) => boss !== "marked" && hand.cards.length === 2 &&
+    totalOf(hand.cards, boss) === 21;
+  const isNoirNatural = (hand, boss) => isNatural(hand, boss) &&
+    hand.cards.every(c => isNoirSuit(c.s));
+
+  // skip tags (spec §2.3) — pre-rolled per ante, shown on the card before you commit
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +1 hand." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder ----------------
+     Weakest → strongest; each resolved player hand emits its single
+     highest-qualifying event, Split Sweep fires additionally when both
+     split hands win. Cards in the final hand add their chip values to
+     base chips before mult (Balatro-style). */
+  // Rebased twice in the 2026-06-12 hardening pass. Round 1: 32/50 runs
+  // dead at Ante 1, all dead by A3. Round 2 proved it was a VARIANCE
+  // failure, not a median one (A1-S median 1.64× target, pass still 78%):
+  // unlike Roulette's guaranteed rouge+noir floor, a blackjack blind can
+  // score zero. So one plain win must clear A1 Small by itself, and the
+  // Marker level-ups must carry the 2.5×-per-ante target growth.
+  const LADDER = [
+    { rung: 1,  key: "push",     name: "Push",              chips: 40,  mult: 2,  up: { c: 15, m: 2 } },
+    { rung: 2,  key: "win",      name: "Win Under 21",      chips: 120, mult: 4,  up: { c: 25, m: 3 } },
+    { rung: 3,  key: "dbust",    name: "Win on Dealer Bust",chips: 130, mult: 4,  up: { c: 25, m: 3 } },
+    { rung: 4,  key: "twenty",   name: "Twenty",            chips: 140, mult: 5,  up: { c: 30, m: 3 } },
+    { rung: 5,  key: "vingt",    name: "Twenty-One",        chips: 150, mult: 6,  up: { c: 30, m: 3 } },
+    { rung: 6,  key: "double",   name: "Double-Down Win",   chips: 160, mult: 6,  up: { c: 35, m: 4 } },
+    { rung: 7,  key: "natural",  name: "Natural Blackjack", chips: 170, mult: 7,  up: { c: 35, m: 4 } },
+    { rung: 8,  key: "charlie",  name: "Five-Card Charlie", chips: 190, mult: 8,  up: { c: 40, m: 4 } },
+    { rung: 9,  key: "sweep",    name: "Split Sweep",       chips: 200, mult: 9,  up: { c: 45, m: 5 } },
+    { rung: 10, key: "noirjack", name: "Noir Blackjack",    chips: 240, mult: 12, up: { c: 50, m: 6 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes (flat / scaling / conditional / economy /
+     ×mult / utility). onEvent mutates ctx.chips / ctx.mult and runs in
+     STRICT charm-bar order, left to right. ctx.hand is the scoring
+     player hand (null on Split Sweep). */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat — always-on chips
+    stakehorse: { name: "The Stakehorse",  type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+30 Chips on any winning event",
+      onEvent: (i, c) => { if (c.event.rung >= 2) c.chips += 30; } },
+    knuckles:   { name: "Brass Knuckles",  type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+7 Chips per card in the scoring hand",
+      onEvent: (i, c) => { c.chips += 7 * c.cards.length; } },
+    cardcase:   { name: "Velvet Card Case", type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+80 Chips when the scoring hand is exactly two cards",
+      onEvent: (i, c) => { if (c.hand && c.hand.cards.length === 2) c.chips += 80; } },
+    // scaling — grows over the run
+    grudge:     { name: "The Grudge",      type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per dealer bust this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onDealEnd: (i, e) => { if (e.dealerBusted) i.state.m += 1; } },
+    ledger:     { name: "Count's Ledger",  type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ chips: 0 }),
+      desc: s => `+${s.chips} Chips on every event (+4 per hand dealt)`,
+      onEvent: (i, c) => { c.chips += i.state.chips; },
+      onDealEnd: i => { i.state.chips += 4; } },
+    shoeshiner: { name: "Shoe Shiner",     type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ x: 0 }),
+      desc: s => `×${(1 + s.x * 0.2).toFixed(1)} Mult on every event (+0.2 per shoe reshuffle)`,
+      onEvent: (i, c) => { c.mult *= 1 + i.state.x * 0.2; },
+      onReshuffle: i => { i.state.x += 1; } },
+    // conditional
+    teetotaler: { name: "The Teetotaler",  type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×3 Mult when the scoring hand contains no face cards",
+      onEvent: (i, c) => { if (c.hand && c.hand.cards.every(cd => !isFace(cd.r))) c.mult *= 3; } },
+    lowroller:  { name: "Low Roller",      type: "conditional", rarity: "Common", cost: 4,
+      desc: () => "+60 Chips when the scoring hand has 4+ cards",
+      onEvent: (i, c) => { if (c.hand && c.hand.cards.length >= 4) c.chips += 60; } },
+    devotee:    { name: "Noir Devotee",    type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+3 Mult per spade or club in the scoring hand",
+      onEvent: (i, c) => { c.mult += 3 * c.cards.filter(cd => isNoirSuit(cd.s)).length; } },
+    standoff:   { name: "Stand-Off Artist", type: "conditional", rarity: "Uncommon", cost: 5,
+      desc: () => "×5 Mult on Push events",
+      onEvent: (i, c) => { if (c.event.key === "push") c.mult *= 5; } },
+    // economy
+    consolation:{ name: "The Consolation", type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $2 every Push",
+      onEvent: (i, c) => { if (c.event.key === "push") { c.run.money += 2; c.deal.moneyGained += 2; } } },
+    shylock:    { name: "Shylock",         type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    housecut:   { name: "House Cut",       type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["House Cut", 3] },
+    vault:      { name: "Velvet Vault",    type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    // ×mult
+    vingtetun:  { name: "Vingt-et-Un",     type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×4 Mult on any 21",
+      onEvent: (i, c) => { if (c.hand && c.hand.finalTotal === 21) c.mult *= 4; } },
+    blacktie:   { name: "Black Tie",       type: "×mult", rarity: "Rare", cost: 10,
+      desc: () => "×2 Mult on Double-Down Win events and above",
+      onEvent: (i, c) => { if (c.event.rung >= 6) c.mult *= 2; } },
+    mechant:    { name: "Méchant Noir",    type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult on the final event when 2+ events score this deal",
+      onEvent: (i, c) => { if (c.isLast && c.deal.eventsCount >= 2) c.mult *= 3; } },
+    // utility
+    insideman:  { name: "The Inside Man",  type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "The dealer's hole card is dealt face up",
+      revealHole: true },
+    mechanicC:  { name: "The Mechanic",    type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Redeal each blind",
+      extraRedeals: 1 },
+    bottomless: { name: "The Bottomless Shoe", type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+1 Hand each blind",
+      extraHands: 1 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2); // half cost, rounded up (spec §2.7)
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] ?? 0), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     10 cards, three power tiers, 2 carry slots. Deck manipulation lives
+     here: La Mort burns shoe cards, Le Teinturier re-suits them to noir,
+     The Duplicator copies them. use kinds: instant / chooser (ladder
+     rung) / target (pick cards from the shoe in a modal). */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    // tier I — minor
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    mortmin:  { name: "La Mort Mineure", tier: 1, cost: 4, use: "target", target: { kind: "mort", count: 1 },
+      desc: "Burn a chosen card out of the shoe forever" },
+    // tier II — major
+    housemarker: { name: "House Marker", tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    teinturier: { name: "Le Teinturier", tier: 2, cost: 6, use: "target", target: { kind: "dye", count: 2 },
+      desc: "Re-suit up to 2 chosen cards to spades or clubs" },
+    duplicator: { name: "The Duplicator", tier: 2, cost: 7, use: "target", target: { kind: "dupe", count: 1 },
+      desc: "Add an exact copy of a chosen card to the shoe" },
+    tempo:    { name: "Tempo Bottle",    tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+1 hand this blind",
+      apply: () => { blind.handsTotal += 1; blind.handsLeft += 1; return "+1 hand"; } },
+    // tier III — prime
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    mortmaj:  { name: "La Mort Majeure", tier: 3, cost: 9, use: "target", target: { kind: "mort", count: 3 },
+      desc: "Burn three chosen cards out of the shoe forever" },
+    asnoir:   { name: "L'As Noir",       tier: 3, cost: 9, use: "instant",
+      desc: "Add an Ace of Spades to the shoe; Noir Blackjack levels up twice",
+      apply: run => { addCardToPool(run, 1, 0); bumpLevel(run, "noirjack", 2); return "the black ace slides in"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warping effects (spec §2.4) ----------------
+     One is rolled per ante (seeded) and rules the Boss Blind. */
+  const BOSSES = {
+    hard17:    { name: "The Hard Seventeen",
+      desc: "The dealer hits soft 17" },
+    veiled:    { name: "The Veiled Dealer",
+      desc: "The dealer's upcard is dealt face down" },
+    houseedge: { name: "The House Edge",
+      desc: "Pushes count as losses — Push events score nothing" },
+    faceless:  { name: "The Faceless",
+      desc: "Face cards contribute no chips" },
+    locksmith: { name: "The Locksmith",
+      desc: "Double down and split are disabled" },
+    anvil:     { name: "The Anvil", minAnte: 2, // floor-killers are gated past the early antes
+      desc: "One fewer hand this blind" },
+    rake:      { name: "The Rake",
+      desc: "Each hand costs $1" },
+    eye:       { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No scoring event may fire twice this blind — repeats score nothing" },
+    marked:    { name: "The Marked Deck", minAnte: 2,
+      desc: "Aces count as one — naturals are impossible" },
+    pitboss:   { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  // active boss id, or null off the boss blind
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  // exponential target curve (spec §2.3)
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ---------------- state ---------------- */
+  let blind = null;      // {idx, target, score, handsTotal, handsLeft, redealsLeft, won, fired, banned, ...}
+  let deal = null;       // live deal: {hands:[{cards,doubled,fromSplit,busted,charlie,stood,finalTotal}], dealer, active, phase}
+  let lastSeed = "";
+  let targeting = null;  // {idx, kind, left, applied} while a targeted omen aims at shoe cards
+  let chooserOmenIdx = null;
+  let shoeState = null;  // live shoe: {shoe:[ids], reshuffles}
+
+  /* ---------------- pool / shoe helpers ----------------
+     All take explicit (run, …) so the headless simulator runs the exact
+     same code; defaults bind them to the live run. */
+  function addCardToPool(run, r, s) {
+    const id = (run.nextCardId = (run.nextCardId ?? 1000) + 1);
+    const card = { id, r, s };
+    run.cards.push(card);
+    // a live shoe also receives the card at a seeded position
+    if (shoeState && run === Rouge.run.current)
+      shoeState.shoe.splice(Rouge.rng.int(0, shoeState.shoe.length), 0, id);
+    return card;
+  }
+
+  function destroyCard(run, id) {
+    const i = run.cards.findIndex(c => c.id === id);
+    if (i >= 0) run.cards.splice(i, 1);
+    if (shoeState && run === Rouge.run.current) {
+      const j = shoeState.shoe.indexOf(id);
+      if (j >= 0) shoeState.shoe.splice(j, 1);
+    }
+  }
+
+  function makeShoeState(run) {
+    return { shoe: Rouge.rng.shuffle(run.cards.map(c => c.id)), reshuffles: 0 };
+  }
+
+  function drawCard(run, st, inPlayIds) {
+    if (st.shoe.length === 0) {
+      const inPlay = new Set(inPlayIds ?? []);
+      let pool = run.cards.filter(c => !inPlay.has(c.id));
+      if (pool.length === 0) pool = run.cards.slice(); // paranoia: never deal from nothing
+      st.shoe = Rouge.rng.shuffle(pool.map(c => c.id));
+      st.reshuffles++;
+      for (const inst of run.charms) CHARMS[inst.id].onReshuffle?.(inst); // Shoe Shiner
+    }
+    const id = st.shoe.pop();
+    return run.cards.find(c => c.id === id);
+  }
+
+  /* ---------------- dealer AI — stands on all 17s ---------------- */
+  function dealerShouldHit(cards, boss) {
+    const t = handTotal(cards, boss);
+    if (t.total < 17) return true;
+    if (boss === "hard17" && t.total === 17 && t.soft) return true; // The Hard Seventeen
+    return false;
+  }
+
+  function playDealerOut(run, st, dealerCards, boss, inPlayIds) {
+    while (dealerShouldHit(dealerCards, boss)) dealerCards.push(drawCard(run, st, inPlayIds));
+    return dealerCards;
+  }
+
+  /* ---------------- event detection ----------------
+     One event per resolved player hand — the highest rung it qualifies
+     for. Returns a ladder entry or null (busts, losses, House-Edge pushes). */
+  function detectHandEvent(hand, dealerCards, dealerPlayed, boss) {
+    const pt = hand.finalTotal;
+    if (hand.busted) return null;
+    if (hand.charlie) return RUNG.charlie;                  // five cards standing — auto-win
+    const natural = isNatural(hand, boss);
+    const dt = totalOf(dealerCards, boss);
+    const dealerNatural = boss !== "marked" && dealerCards.length === 2 && dt === 21;
+    const dealerBust = dealerPlayed && dt > 21;
+    let outcome; // 'win' | 'push' | 'loss'
+    if (natural && dealerNatural) outcome = "push";
+    else if (natural) outcome = "win";
+    else if (dealerNatural) outcome = "loss";
+    else if (dealerBust) outcome = "win";
+    else if (pt > dt) outcome = "win";
+    else if (pt === dt) outcome = "push";
+    else outcome = "loss";
+    if (outcome === "loss") return null;
+    if (outcome === "push") return boss === "houseedge" ? null : RUNG.push; // pushes count as losses
+    if (natural) return isNoirNatural(hand, boss) ? RUNG.noirjack : RUNG.natural;
+    if (hand.doubled) return RUNG.double;
+    if (pt === 21) return RUNG.vingt;
+    if (pt === 20) return RUNG.twenty;
+    if (dealerBust) return RUNG.dbust;
+    return RUNG.win;
+  }
+
+  function eventBase(e, run = Rouge.run.current) { // ladder level (Markers)
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    return { chips: e.chips + lvl * e.up.c, mult: e.mult + lvl * e.up.m };
+  }
+
+  /* headless scoring core — the live table and BJ.simulate share this.
+     dealObj: {hands, dealerCards, dealerPlayed}. Events resolve in
+     ascending rung order; participating cards add their chip values. */
+  function scoreDeal(run, blindState, boss, dealObj) {
+    const events = [];
+    for (const hand of dealObj.hands) {
+      const e = detectHandEvent(hand, dealObj.dealerCards, dealObj.dealerPlayed, boss);
+      if (e) events.push({ e, hand, cards: hand.cards });
+    }
+    if (dealObj.hands.length === 2) { // Split Sweep — both split hands win
+      const winning = events.filter(ev => ev.e.rung >= 2);
+      if (winning.length === 2)
+        events.push({ e: RUNG.sweep, hand: null, cards: dealObj.hands.flatMap(h => h.cards) });
+    }
+    events.sort((a, b) => a.e.rung - b.e.rung);
+    const dealCtx = { eventsCount: events.length, moneyGained: 0 };
+    let gain = 0;
+    const details = events.map(({ e, hand, cards }, idx) => {
+      let voided = null;
+      if (boss === "pitboss" && e.key === blindState.banned) voided = "BANNED";
+      else if (boss === "eye" && blindState.fired.has(e.key)) voided = "SEEN — NO REPEATS";
+      if (voided) return { name: e.name, voided };
+      blindState.fired.add(e.key);
+      const base = eventBase(e, run);
+      const cardChips = cards.reduce((s, c) => s + cardChip(c, boss), 0);
+      const ctx = {
+        event: e, hand, cards,
+        chips: base.chips + cardChips, mult: base.mult,
+        isFirst: idx === 0, isLast: idx === events.length - 1,
+        deal: dealCtx, run
+      };
+      // charms apply in STRICT left-to-right bar order
+      for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx);
+      const score = Math.floor(ctx.chips * ctx.mult);
+      gain += score;
+      return { name: e.name, chips: ctx.chips, mult: ctx.mult, score };
+    });
+    const dealerBusted = dealObj.dealerPlayed && totalOf(dealObj.dealerCards, boss) > 21;
+    for (const inst of run.charms)
+      CHARMS[inst.id].onDealEnd?.(inst, { scored: gain > 0, gain, dealerBusted, deal: dealCtx, run });
+    return { gain, details, moneyGained: dealCtx.moneyGained };
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+
+  /* ---------------- blind flow ---------------- */
+  // older saves predate some fields — fill them in
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { hands: 0, best: 0, beaten: 0, skips: 0, redeals: 0 };
+    run.stats.redeals ??= 0;
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.cards) { run.cards = freshPool(); run.nextCardId = 1000; }
+    run.nextCardId ??= 1000;
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0); // stale aiming from a restarted blind
+    // tags apply to "your next blind": read them now, consume them at collection
+    // so a mid-blind reload (which restarts the blind) doesn't burn them
+    const usedTags = [];
+    let hands = HANDS_PER_BLIND + charmFlag(run, "extraHands");
+    let redeals = REDEALS_PER_BLIND + charmFlag(run, "extraRedeals");
+    let rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { hands++; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    if (idx === 2 && run.boss === "anvil") hands = Math.max(1, hands - 1);
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              handsTotal: hands, handsLeft: hands,
+              redealsTotal: redeals, redealsLeft: redeals,
+              won: false, rewardMult, usedTags,
+              fired: new Set(), banned: null };
+    if (idx === 2 && run.boss === "pitboss") {
+      // most-leveled rung; ties go to the highest rung
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    const bb = $("boss-banner");
+    if (idx === 2 && run.boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[run.boss].name}</b> &mdash; ${BOSSES[run.boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    shoeState = makeShoeState(run); // fresh seeded shuffle of the card pool
+    deal = null;
+    $("breakdown-list").innerHTML = '<li class="flavor">Event breakdown appears here after each hand.</li>';
+    $("result-label").textContent = "The shoe is fresh. Deal when ready.";
+    $("result-gain").textContent = "";
+    $("win-banner").classList.remove("show");
+    $("win-banner").innerHTML = "";
+    renderHands();
+    renderCharms();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    syncControls();
+    Rouge.router.go("table");
+  }
+
+  /* ---------------- the Deal — live table flow ---------------- */
+  const inPlayIds = () => deal
+    ? [...deal.hands.flatMap(h => h.cards), ...deal.dealerCards].map(c => c.id)
+    : [];
+  const draw = () => drawCard(Rouge.run.current, shoeState, inPlayIds());
+  const currentHand = () => deal && deal.phase === "player" ? deal.hands[deal.active] : null;
+  const newHand = (cards, fromSplit = false) =>
+    ({ cards, doubled: false, fromSplit, busted: false, charlie: false, stood: false, finalTotal: 0 });
+
+  function dealNew() {
+    if (!blind || blind.won || blind.handsLeft === 0 || targeting) return;
+    if (deal && deal.phase !== "done") return;
+    const run = Rouge.run.current;
+    if (bossId() === "rake") { // The Rake takes its dollar up front
+      run.money = Math.max(0, run.money - 1);
+      renderRail();
+    }
+    deal = { hands: [], dealerCards: [], active: 0, phase: "player",
+             actedAny: false, splitUsed: false, dealerPlayed: false };
+    const p1 = draw(), p2 = draw();
+    deal.dealerCards.push(draw(), draw()); // [upcard, hole]
+    deal.hands.push(newHand([p1, p2]));
+    Rouge.run.persist(); // commit the advanced rng state — the shoe can't be save-scummed
+    Rouge.audio.play("deal");
+    $("result-label").textContent = "Your move.";
+    $("result-gain").textContent = "";
+    renderHands();
+    syncControls();
+    autoResolveOpening();
+  }
+
+  function autoResolveOpening() { // a dealt natural stands immediately
+    const h = deal.hands[0];
+    if (isNatural(h, bossId())) { h.stood = true; h.finalTotal = 21; toDealer(); }
+  }
+
+  const canRedeal = () => deal && deal.phase === "player" && !deal.actedAny &&
+    deal.hands.length === 1 && deal.hands[0].cards.length === 2 && blind.redealsLeft > 0;
+
+  function redeal() { // the discard analog: opening two cards out, two fresh ones in
+    if (!canRedeal()) return;
+    blind.redealsLeft--;
+    Rouge.run.current.stats.redeals++;
+    deal.hands[0] = newHand([draw(), draw()]);
+    Rouge.run.persist();
+    Rouge.audio.play("deal");
+    renderHands();
+    syncControls();
+    autoResolveOpening();
+  }
+
+  function finishHand(h, total) {
+    h.finalTotal = total;
+    if (deal.hands.length === 2 && deal.active === 0) {
+      deal.active = 1;
+      renderHands();
+      syncControls();
+      // the second split hand may already stand complete (e.g. dealt 21)
+      const h2 = deal.hands[1];
+      const t2 = totalOf(h2.cards, bossId());
+      if (t2 === 21) { h2.stood = true; finishHand(h2, 21); }
+    } else {
+      toDealer();
+    }
+  }
+
+  function afterDraw(h) { // shared bust / charlie / auto-21 checks
+    deal.actedAny = true;
+    const t = totalOf(h.cards, bossId());
+    if (t > 21) { h.busted = true; finishHand(h, t); }
+    else if (h.cards.length >= 5) { h.charlie = true; h.stood = true; finishHand(h, t); }
+    else if (t === 21) { h.stood = true; finishHand(h, t); }
+    else { renderHands(); syncControls(); }
+  }
+
+  function hit() {
+    const h = currentHand();
+    if (!h || h.doubled) return;
+    h.cards.push(draw());
+    Rouge.run.persist();
+    Rouge.audio.play("flip");
+    afterDraw(h);
+  }
+
+  function stand() {
+    const h = currentHand();
+    if (!h) return;
+    h.stood = true;
+    deal.actedAny = true;
+    finishHand(h, totalOf(h.cards, bossId()));
+  }
+
+  const canDouble = () => { const h = currentHand();
+    return h && h.cards.length === 2 && !h.fromSplit && bossId() !== "locksmith"; };
+
+  function doubleDown() { // one card, then forced stand
+    if (!canDouble()) return;
+    const h = currentHand();
+    h.doubled = true;
+    h.cards.push(draw());
+    Rouge.run.persist();
+    Rouge.audio.play("flip");
+    deal.actedAny = true;
+    const t = totalOf(h.cards, bossId());
+    if (t > 21) h.busted = true; else h.stood = true;
+    finishHand(h, t);
+  }
+
+  const splitValue = c => c.r === 1 ? 11 : Math.min(10, c.r);
+  const canSplit = () => { const h = currentHand();
+    return h && h.cards.length === 2 && !deal.splitUsed && deal.hands.length === 1 &&
+      splitValue(h.cards[0]) === splitValue(h.cards[1]) && bossId() !== "locksmith"; };
+
+  function split() { // once per deal; each hand draws its second card
+    if (!canSplit()) return;
+    const [c1, c2] = deal.hands[0].cards;
+    deal.splitUsed = true;
+    deal.actedAny = true;
+    deal.hands = [newHand([c1, draw()], true), newHand([c2, draw()], true)];
+    deal.active = 0;
+    Rouge.run.persist();
+    Rouge.audio.play("deal");
+    renderHands();
+    syncControls();
+    const h1 = deal.hands[0];
+    if (totalOf(h1.cards, bossId()) === 21) { h1.stood = true; finishHand(h1, 21); }
+  }
+
+  function toDealer() {
+    deal.phase = "dealer";
+    renderHands(); // hole card turns over
+    syncControls();
+    const boss = bossId();
+    const run = Rouge.run.current;
+    const needsPlay = deal.hands.some(h => !h.busted && !h.charlie && !isNatural(h, boss));
+    if (!needsPlay) { window.setTimeout(settle, Rouge.speed.ms(DEALER_DELAY)); return; }
+    deal.dealerPlayed = true;
+    const step = () => {
+      if (dealerShouldHit(deal.dealerCards, boss)) {
+        deal.dealerCards.push(drawCard(run, shoeState, inPlayIds()));
+        Rouge.run.persist();
+        Rouge.audio.play("flip");
+        renderHands();
+        window.setTimeout(step, Rouge.speed.ms(DEALER_DELAY));
+      } else {
+        window.setTimeout(settle, Rouge.speed.ms(DEALER_DELAY * 0.6));
+      }
+    };
+    window.setTimeout(step, Rouge.speed.ms(DEALER_DELAY));
+  }
+
+  function settle() {
+    const run = Rouge.run.current;
+    const boss = bossId();
+    deal.phase = "done";
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    const result = scoreDeal(run, blind, boss, deal);
+    const gain = result.gain;
+    const lines = result.details.map(d => d.voided
+      ? `<li><span class="ev">${d.name}</span><span class="math"><b style="color:var(--lipstick)">${d.voided}</b></span></li>`
+      : `<li><span class="ev">${d.name}</span><span class="math"><span class="c">${fmt(d.chips)}</span> × <span class="m">${fmtMult(d.mult)}</span> = <b>${fmt(d.score)}</b></span></li>`);
+
+    blind.score += gain;
+    blind.handsLeft--;
+    run.stats.hands++;
+    if (gain > run.stats.best) run.stats.best = gain;
+
+    const dt = totalOf(deal.dealerCards, boss);
+    $("result-label").textContent = gain > 0
+      ? (dt > 21 && deal.dealerPlayed ? "Dealer busts." : "The table pays.")
+      : (deal.hands.every(h => h.busted) ? "Busted — the hand is ash." : "The house takes it.");
+    $("result-gain").textContent = gain > 0
+      ? `+${fmt(gain)}${result.moneyGained ? ` · +$${result.moneyGained}` : ""}`
+      : "";
+    $("breakdown-list").innerHTML = lines.length ? lines.join("") : '<li class="flavor">The house keeps this one.</li>';
+
+    renderHands();
+    renderCharms(); // scaling charms update their descriptions
+    renderRail();   // before win/lose — loseRun abandons the run and renderRail would bail out
+    if (blind.score >= blind.target) winBlind();
+    else if (blind.handsLeft === 0) loseRun();
+    syncControls(); // after winBlind so a won blind locks the deal button
+    Rouge.run.persist();
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Blackjack Noir tips its hat."
+      : `The dealer had other plans — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed],
+      ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`],
+      ["Blinds beaten", run.stats.beaten],
+      ["Blinds skipped", run.stats.skips],
+      ["Hands played", run.stats.hands],
+      ["Redeals used", run.stats.redeals],
+      ["Best hand", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens aim at the shoe itself: a modal shows the card pool
+     and clicks burn / re-suit / duplicate. Only between hands. */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    const midHand = deal && deal.phase !== "done";
+    if (o.use === "target") return onTable && !!blind && !blind.won && !midHand;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && !midHand && blind.handsLeft > 0;
+    return !midHand || !onTable; // instants & choosers wait for the hand to finish
+  }
+
+  function eligibleTargets(kind) {
+    const run = Rouge.run.current;
+    if (kind === "mort") return run.cards.length > MIN_POOL ? run.cards.slice() : [];
+    if (kind === "dye")  return run.cards.filter(c => !isNoirSuit(c.s));
+    if (kind === "dupe") return run.cards.length < MAX_POOL ? run.cards.slice() : [];
+    return [];
+  }
+
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") {
+      const note = o.apply(run);
+      consumeOmen(idx, note);
+    } else if (o.use === "chooser") {
+      openChooser(idx);
+    } else { // target: pick cards from the shoe in the modal
+      targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0, name: o.name };
+      openTargetModal();
+    }
+  }
+
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+
+  const VERBS = { mort: "burn", dye: "re-suit", dupe: "copy" };
+  function openTargetModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    renderTargetGrid();
+    $("chooser").classList.add("show");
+  }
+
+  function renderTargetGrid() {
+    const cards = eligibleTargets(targeting.kind)
+      .slice().sort((a, b) => a.s - b.s || a.r - b.r);
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = cards.length
+      ? `Click ${targeting.left} card${targeting.left > 1 ? "s" : ""} to ${VERBS[targeting.kind]}` +
+        (targeting.kind === "mort" ? ` (the shoe keeps at least ${MIN_POOL})` : "")
+      : "No eligible cards remain.";
+    const grid = $("chooser-cards");
+    grid.innerHTML = "";
+    for (const c of cards) {
+      const el = cardEl(c, false);
+      el.addEventListener("click", () => applyTarget(c.id));
+      grid.appendChild(el);
+    }
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+    if (cards.length === 0 && targeting.applied > 0) endTargeting(true); // nothing left to aim at
+  }
+
+  function applyTarget(id) {
+    const run = Rouge.run.current;
+    const card = run.cards.find(c => c.id === id);
+    if (!card) return;
+    if (targeting.kind === "mort") destroyCard(run, id);
+    if (targeting.kind === "dye") card.s = card.s === 2 ? 0 : 1; // hearts→spades, diamonds→clubs
+    if (targeting.kind === "dupe") addCardToPool(run, card.r, card.s);
+    targeting.applied++;
+    targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderTargetGrid();
+  }
+
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cards").innerHTML = "";
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the shoe remembers");
+    else renderOmens();
+    renderHands();
+    syncControls();
+  }
+
+  function openChooser(idx) { // House Marker — pick a ladder rung
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-cards").innerHTML = "";
+    const opts = $("chooser-options");
+    opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => {
+        bumpLevel(run, e.key, 2); // House Marker levels twice
+        $("chooser").classList.remove("show");
+        consumeOmen(chooserOmenIdx, `${e.name} leveled up`);
+        chooserOmenIdx = null;
+      });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+
+  /* ---------------- shop ----------------
+     2 item slots, seeded stock, escalating reroll that resets each shop
+     visit. Stock persists in the run save: reloading mid-shop cannot
+     re-roll the offer. */
+  /* ---------------- rendering — the felt ---------------- */
+  function cardEl(card, faceDown) {
+    const el = document.createElement("div");
+    if (faceDown) {
+      el.className = "pcard back";
+      el.innerHTML = `<span class="rk">&#9670;</span>`;
+    } else {
+      el.className = "pcard" + (isNoirSuit(card.s) ? "" : " red");
+      el.innerHTML = `<span class="rk">${rankName(card.r)}</span><span class="st">${SUITS[card.s]}</span>`;
+    }
+    return el;
+  }
+
+  function renderHands() {
+    const boss = bossId();
+    const dc = $("dealer-cards"), dt = $("dealer-total");
+    dc.innerHTML = "";
+    const ph = $("player-hands");
+    ph.innerHTML = "";
+    $("shoe-chip").textContent = `SHOE ${shoeState ? shoeState.shoe.length : "—"}`;
+    if (!deal) { dt.hidden = true; return; }
+    const revealed = deal.phase === "dealer" || deal.phase === "done";
+    const holeUp = revealed || anyCharmFlag(Rouge.run.current, "revealHole"); // The Inside Man
+    deal.dealerCards.forEach((c, i) => {
+      const down = i === 0 ? (!revealed && boss === "veiled")      // The Veiled Dealer
+                           : (i === 1 ? !holeUp : false);
+      dc.appendChild(cardEl(c, down));
+    });
+    if (revealed) {
+      const t = handTotal(deal.dealerCards, boss);
+      dt.hidden = false;
+      dt.textContent = t.total;
+      dt.className = "bj-total" + (t.total > 21 ? " bust" : "");
+    } else dt.hidden = true;
+    deal.hands.forEach((h, i) => {
+      const row = document.createElement("div");
+      row.className = "bj-hand" + (deal.phase === "player" && i === deal.active ? " live" : "");
+      if (deal.hands.length === 2) {
+        const tag = document.createElement("span");
+        tag.className = "htag";
+        tag.textContent = `Hand ${i === 0 ? "A" : "B"}`;
+        row.appendChild(tag);
+      }
+      const cards = document.createElement("div");
+      cards.className = "bj-cards";
+      h.cards.forEach(c => cards.appendChild(cardEl(c, false)));
+      row.appendChild(cards);
+      const t = handTotal(h.cards, boss);
+      const tot = document.createElement("div");
+      tot.className = "bj-total" + (h.busted ? " bust" : (t.total === 21 || h.charlie ? " bj" : ""));
+      tot.textContent = h.charlie ? "CHARLIE" : (h.busted ? `${t.total} BUST` : t.total + (t.soft ? " soft" : ""));
+      row.appendChild(tot);
+      if (h.doubled) {
+        const d = document.createElement("span");
+        d.className = "htag";
+        d.textContent = "DOUBLED";
+        row.appendChild(d);
+      }
+      ph.appendChild(row);
+    });
+  }
+
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-hands").textContent = `${blind.handsLeft} / ${blind.handsTotal}`;
+    $("rail-redeals").textContent = `${blind.redealsLeft} / ${blind.redealsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length
+      ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ")
+      : "—";
+  }
+
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won;
+    const acting = !lock && deal && deal.phase === "player";
+    $("btn-deal").disabled = lock || blind.handsLeft === 0 || (deal && deal.phase !== "done");
+    $("btn-hit").disabled = !acting;
+    $("btn-stand").disabled = !acting;
+    $("btn-double").disabled = !acting || !canDouble();
+    $("btn-split").disabled = !acting || !canSplit();
+    $("btn-redeal").disabled = lock || !canRedeal();
+    $("btn-redeal").textContent = `Redeal (${blind ? blind.redealsLeft : 0})`;
+    $("shoe-chip").textContent = `SHOE ${shoeState ? shoeState.shoe.length : "—"}`;
+  }
+
+  /* ---------------- BJ.simulate — headless balance harness ----------------
+     Plays n seeded runs through the REAL core (drawCard, playDealerOut,
+     detectHandEvent, scoreDeal, buildCashout, pickStock) with a fixed
+     basic-strategy bot:
+     - splits A/A & 8/8 always, 9/9 vs 2-6/8/9, 7/7 & 2/2 & 3/3 vs ≤7,
+       6/6 vs ≤6; never 4s/5s/10s
+     - doubles hard 11, 10 vs ≤9, 9 vs 3-6; soft 17-18 vs 3-6
+     - hard: stand 17+, 13-16 vs ≤6, 12 vs 4-6; soft: stand 19+, 18 vs ≤8
+     - charlie chase: with 4 cards and total ≤ 16, hit
+     - redeals stiff openers (hard 12-16, non-pair) vs upcard 7+
+     - Veiled Dealer played as if the upcard were a 10; ignores The
+       Inside Man's hole knowledge (human-only edge)
+     - buys any affordable charm/omen, additive charms left of ×mult,
+       omens used on acquisition, never skips, never rerolls
+     Touches neither the DOM nor the live run; restores the RNG state. */
+  const upValOf = (dealerCards, boss) => boss === "veiled" ? 10
+    : (dealerCards[0].r === 1 ? 11 : Math.min(10, dealerCards[0].r));
+
+  function botWantsSplit(v, up, boss) {
+    if (v === 11) return boss !== "marked"; // aces are dead weight under The Marked Deck
+    if (v === 8) return true;
+    if (v === 9) return up <= 6 || up === 8 || up === 9;
+    if (v === 7) return up <= 7;
+    if (v === 6) return up <= 6;
+    if (v === 2 || v === 3) return up <= 7;
+    return false;
+  }
+
+  function botAction(hand, up, boss, canDbl) {
+    const t = handTotal(hand.cards, boss);
+    if (hand.cards.length === 4 && t.total <= 16) return "hit"; // charlie chase
+    if (t.soft) {
+      if (t.total >= 19) return "stand";
+      if (t.total === 18) { if (canDbl && up >= 3 && up <= 6) return "double"; return up <= 8 ? "stand" : "hit"; }
+      if (t.total === 17 && canDbl && up >= 3 && up <= 6) return "double";
+      return "hit";
+    }
+    if (t.total >= 17) return "stand";
+    if (t.total >= 13) return up <= 6 ? "stand" : "hit";
+    if (t.total === 12) return up >= 4 && up <= 6 ? "stand" : "hit";
+    if (t.total === 11 && canDbl) return "double";
+    if (t.total === 10 && canDbl && up <= 9) return "double";
+    if (t.total === 9 && canDbl && up >= 3 && up <= 6) return "double";
+    return "hit";
+  }
+
+  function botPlayDeal(run, st, boss, blindState) {
+    let inPlay = [];
+    const d = () => { const c = drawCard(run, st, inPlay); inPlay.push(c.id); return c; };
+    let p = [d(), d()];
+    const dealerCards = [d(), d()];
+    const up = upValOf(dealerCards, boss);
+    // redeal stiff openers
+    {
+      const t0 = handTotal(p, boss);
+      const pair = splitValue(p[0]) === splitValue(p[1]);
+      if (blindState.redealsLeft > 0 && !t0.soft && t0.total >= 12 && t0.total <= 16 && !pair && up >= 7) {
+        blindState.redealsLeft--;
+        run.stats.redeals++;
+        inPlay = inPlay.filter(id => !p.some(c => c.id === id)); // discards may return at the reshuffle
+        p = [d(), d()];
+      }
+    }
+    let hands;
+    const pair = splitValue(p[0]) === splitValue(p[1]);
+    if (!isNatural({ cards: p }, boss) && pair && boss !== "locksmith" && botWantsSplit(splitValue(p[0]), up, boss)) {
+      hands = [newHand([p[0], d()], true), newHand([p[1], d()], true)];
+    } else {
+      hands = [newHand(p)];
+    }
+    for (const hand of hands) {
+      for (;;) {
+        const t = totalOf(hand.cards, boss);
+        if (t > 21) { hand.busted = true; hand.finalTotal = t; break; }
+        if (hand.cards.length >= 5) { hand.charlie = true; hand.stood = true; hand.finalTotal = t; break; }
+        if (t === 21) { hand.stood = true; hand.finalTotal = 21; break; }
+        const canDbl = hand.cards.length === 2 && !hand.fromSplit && boss !== "locksmith";
+        const act = botAction(hand, up, boss, canDbl);
+        if (act === "stand") { hand.stood = true; hand.finalTotal = t; break; }
+        if (act === "double") {
+          hand.doubled = true;
+          hand.cards.push(d());
+          const t2 = totalOf(hand.cards, boss);
+          if (t2 > 21) hand.busted = true; else hand.stood = true;
+          hand.finalTotal = t2;
+          break;
+        }
+        hand.cards.push(d()); // hit
+      }
+    }
+    const dealerPlayed = hands.some(h => !h.busted && !h.charlie && !isNatural(h, boss));
+    if (dealerPlayed) playDealerOut(run, st, dealerCards, boss, inPlay);
+    return { hands, dealerCards, dealerPlayed };
+  }
+
+  function simOneRun(seed) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null], stats: { hands: 0, best: 0, beaten: 0, skips: 0, redeals: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {},
+      cards: freshPool(), nextCardId: 1000, boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (cond, msg) => { if (!cond) bugs.push(`${seed}: ${msg}`); };
+    let tempoHeld = 0;
+
+    const useOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.win ?? 0) >= 4 ? "twenty" : "win", 2); // floor first
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "asnoir") { addCardToPool(run, 1, 0); bumpLevel(run, "noirjack", 2); }
+        else if (id === "teinturier") {
+          for (let k = 0; k < 2; k++) { // dye a red ace or ten-card noir
+            const c = run.cards.find(cd => !isNoirSuit(cd.s) && (cd.r === 1 || cd.r >= 10));
+            if (c) c.s = c.s === 2 ? 0 : 1;
+          }
+        }
+        else if (id === "duplicator") {
+          if (run.cards.length < MAX_POOL) {
+            const ace = run.cards.find(cd => cd.r === 1 && isNoirSuit(cd.s)) ?? run.cards.find(cd => cd.r === 1);
+            if (ace) addCardToPool(run, ace.r, ace.s);
+          }
+        }
+        else if (id === "mortmin" || id === "mortmaj") {
+          for (let k = 0, cnt = id === "mortmaj" ? 3 : 1; k < cnt; k++) {
+            if (run.cards.length <= MIN_POOL) break;
+            let worst = null; // burn the lowest pip first (sharpens 20s and naturals)
+            for (const cd of run.cards) if (cd.r >= 2 && cd.r <= 6 && (!worst || cd.r < worst.r)) worst = cd;
+            if (worst) destroyCard(run, worst.id); else break;
+          }
+        }
+        else if (id === "tempo") tempoHeld++;
+        run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") {
+          if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) {
+            run.money -= CHARMS[entry.id].cost;
+            run.charms.push(newCharm(entry.id));
+          }
+        } else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) {
+          run.money -= OMENS[entry.id].cost;
+          run.consumables.push(entry.id);
+        }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useOmens();
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let hands = HANDS_PER_BLIND + charmFlag(run, "extraHands") + tempoHeld;
+        tempoHeld = 0;
+        if (boss === "anvil") hands = Math.max(1, hands - 1);
+        const redeals = REDEALS_PER_BLIND + charmFlag(run, "extraRedeals");
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0,
+          handsTotal: hands, handsLeft: hands, redealsTotal: redeals, redealsLeft: redeals,
+          won: false, rewardMult: 1, usedTags: [], fired: new Set(), banned: null };
+        if (boss === "pitboss") {
+          let best = LADDER[0];
+          for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+          blindState.banned = best.key;
+        }
+        const st = makeShoeState(run);
+        while (blindState.handsLeft > 0 && !blindState.won) {
+          if (boss === "rake") run.money = Math.max(0, run.money - 1);
+          const dealObj = botPlayDeal(run, st, boss, blindState);
+          const res = scoreDeal(run, blindState, boss, dealObj);
+          assert(Number.isFinite(res.gain) && res.gain >= 0, `bad gain ${res.gain} A${ante}/${bi}`);
+          blindState.score += res.gain;
+          blindState.handsLeft--;
+          run.stats.hands++;
+          if (res.gain > run.stats.best) run.stats.best = res.gain;
+          if (blindState.score >= blindState.target) blindState.won = true;
+        }
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won,
+          handsUsed: blindState.handsTotal - blindState.handsLeft, money: run.money });
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money ${run.money} A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        shop();
+      }
+    }
+    rec.result = "WIN";
+    rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    for (let r = 1; r <= runs; r++) {
+      try {
+        const { rec, bugs } = simOneRun(`SIM-${r}`);
+        out.runs.push(rec);
+        out.bugs.push(...bugs);
+      } catch (err) {
+        out.bugs.push(`SIM-${r} crashed: ${err.message}`);
+      }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++;
+        if (b.won) k.won++;
+        k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) {
+      k.ratios.sort((a, b) => a - b);
+      k.median = k.ratios[Math.floor(k.ratios.length / 2)];
+      k.pass = +(k.won / k.n).toFixed(2);
+      delete k.ratios;
+    }
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-deal").addEventListener("click", dealNew);
+    $("btn-hit").addEventListener("click", hit);
+    $("btn-stand").addEventListener("click", stand);
+    $("btn-double").addEventListener("click", doubleDown);
+    $("btn-split").addEventListener("click", split);
+    $("btn-redeal").addEventListener("click", redeal);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null;
+      deal = null;
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed; // easy retry of the same seed
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null;
+      deal = null;
+      Rouge.run.start(""); // fresh random seed
+    });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => {
+      if (targeting) { endTargeting(targeting.applied > 0); return; } // Done consumes, Cancel restores
+      $("chooser").classList.remove("show");
+      chooserOmenIdx = null;
+    });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") {
+        if (run) {
+          ensureRunShape(run);
+          if (run.shop) { run.shop = null; Rouge.run.persist(); } // shop closes; next visit re-rolls
+        }
+        renderBlindSelect();
+      }
+      if (e.detail.screen === "shop" && run) {
+        ensureRunShape(run);
+        if (!run.shop) rollShop();
+        renderShop();
+        renderCharms();
+        renderOmens();
+      }
+    });
+  });
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "handsLeft", playWord: "hands", ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           HANDS_PER_BLIND, REDEALS_PER_BLIND, MIN_POOL, MAX_POOL,
+           freshPool, handTotal, cardChip, sellValue, omenSellValue,
+           get blind() { return blind; }, get deal() { return deal; },
+           get shoe() { return shoeState; },
+           startBlind, skipBlind, dealNew, hit, stand, doubleDown, split, redeal,
+           cashOut, buyStock, sellCharm, moveCharm, rerollShop,
+           useOmen, sellOmen, simulate };
+})();
+window.BJ = BJ;
+
+/* plug Blackjack Noir into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:bjn",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { hands: 0, best: 0, beaten: 0, skips: 0, redeals: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, cards: null, boss: null })
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Craps Crimson — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .8rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .1rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+/* ====================================================================
+   CRAPS CRIMSON — table layer styles
+   ==================================================================== */
+.cc-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.cc-felt { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2); align-items: center; }
+.cc-status {
+  font-family: var(--font-display); font-size: .95rem; letter-spacing: .14em;
+  color: var(--champagne); text-transform: uppercase; text-align: center;
+}
+.cc-status .puck {
+  display: inline-block; min-width: 2.2rem; padding: .1rem .5rem; margin-left: .5rem;
+  border-radius: 999px; border: 2px solid var(--gold-leaf);
+  background: var(--ivory); color: var(--noir-velvet); font-weight: 900;
+}
+.cc-status .puck.off { background: var(--noir-velvet); color: var(--smoke); border-color: var(--smoke); }
+.cc-dice { display: flex; gap: var(--space-3); align-items: center; min-height: 96px; }
+.die {
+  width: 86px; height: 86px; border-radius: 12px;
+  background: var(--ivory); border: 2px solid var(--gold-leaf);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 64px; line-height: 1; color: var(--crimson-velvet);
+  box-shadow: 0 3px 8px rgba(0,0,0,.65);
+  animation: dieIn var(--dur-med) ease-out;
+  user-select: none;
+}
+.die.b { color: var(--noir-velvet); }
+.die.pendingShake { animation: dieShake calc(.5s / var(--speed)) ease-out; }
+@keyframes dieIn { from { opacity: 0; transform: translateY(-14px) rotate(-9deg); } to { opacity: 1; } }
+@keyframes dieShake { 0% { transform: rotate(-12deg); } 30% { transform: rotate(9deg); } 60% { transform: rotate(-5deg); } 100% { transform: rotate(0); } }
+.die.hidden-cup {
+  background: var(--crimson-velvet); color: var(--gold-leaf);
+  background-image: repeating-linear-gradient(45deg, rgba(201,162,75,.25) 0 5px, transparent 5px 11px);
+  font-size: 2rem; font-family: var(--font-display);
+}
+.die.empty { background: transparent; border: 2px dashed var(--smoke); color: var(--smoke); font-size: 2rem; }
+.cc-roll-label { font-family: var(--font-display); font-size: 1rem; letter-spacing: .12em; color: var(--gold-leaf); min-height: 1.4rem; }
+.cc-pending-actions { display: flex; gap: var(--space-2); min-height: 2.4rem; align-items: center; }
+
+/* the 12-face deck panel */
+.faces-panel { padding: var(--space-2); }
+.faces-row { display: flex; gap: .45rem; align-items: center; margin-top: .3rem; }
+.faces-row .die-tag { font-family: var(--font-display); font-size: .65rem; letter-spacing: .12em; color: var(--smoke); width: 3.2rem; }
+.face-chip {
+  width: 36px; height: 36px; border-radius: 7px;
+  background: var(--ivory); border: 1px solid var(--smoke);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; line-height: 1; color: var(--noir-velvet);
+  user-select: none;
+}
+.face-chip.modded { border-color: var(--gold-leaf); box-shadow: 0 0 6px rgba(201,162,75,.7); color: var(--crimson-velvet); }
+#chooser-cards .face-chip { cursor: pointer; width: 44px; height: 44px; font-size: 32px; }
+#chooser-cards .face-chip:hover { outline: 2px solid var(--champagne); transform: translateY(-2px); }
+
+.cc-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.cc-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 150px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.cc-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.cc-controls .turn-chip { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); margin-left: auto; }
+
+/* chooser / targeting modal */
+#chooser {
+  display: none; position: fixed; inset: 0; z-index: 11;
+  background: rgba(18, 13, 10, .85); align-items: center; justify-content: center;
+}
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 300px; max-width: 720px; max-height: 86vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-cards { display: flex; flex-direction: column; gap: .5rem; align-items: center; }
+#chooser-cards .faces-row { justify-content: center; }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+
+/* overlay (run over / victory) */
+#overlay {
+  display: none; position: fixed; inset: 0; z-index: 10;
+  background: rgba(18, 13, 10, .85);
+  align-items: center; justify-content: center;
+}
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; CRAPS CRIMSON</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Craps <span style="color:var(--lipstick)">Crimson</span></h1>
+      <p class="flavor">Carve the dice, chase the point.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Turns</div><div class="value" id="rail-turns">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Re-rolls</div><div class="value" id="rail-rerolls">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="cc-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="cc-felt panel">
+          <div class="cc-status" id="cc-status">COME-OUT <span class="puck off" id="point-puck">OFF</span></div>
+          <div class="cc-dice">
+            <div class="die empty" id="die-a">?</div>
+            <div class="die b empty" id="die-b">?</div>
+          </div>
+          <div class="cc-roll-label" id="roll-label"></div>
+          <div class="cc-pending-actions">
+            <button class="primary" id="btn-resolve" hidden>Resolve</button>
+            <button id="btn-takeback" hidden>Re-roll (3)</button>
+            <button id="btn-commit" hidden>Commit Throw</button>
+            <button id="btn-peek-reroll" hidden>Re-roll Die (uses re-roll)</button>
+          </div>
+        </div>
+
+        <div class="faces-panel panel">
+          <div class="bar-label">THE DICE — 12 FACES</div>
+          <div id="faces-view"></div>
+        </div>
+
+        <div class="cc-result panel">
+          <div>
+            <div id="result-label" class="flavor">The bones are warm. Throw when ready.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">Event breakdown appears here after each roll.</li></ul></div>
+        <div class="cc-controls">
+          <button class="primary" id="btn-throw">Throw</button>
+          <span class="turn-chip" id="turn-chip">&mdash;</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-cards"></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>craps-crimson.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+
+/* ====================================================================
+   CRAPS CRIMSON — game module (spec.md §3.4, revised ladder)
+   Atomic object: the Die Face — 12 of them (2 dice × 6 faces); omens
+   re-pip them now, enhancements/seals attach to them later.
+   Play: the Shooter Turn — 4 turns + 3 re-rolls per blind; pass-line
+   structure with point chaining inside a turn. A throw lands PENDING:
+   resolve it, or spend a re-roll to take it back.
+   ==================================================================== */
+const CC = (() => {
+  const TURNS_PER_BLIND = 4, REROLLS_PER_BLIND = 3;
+  const INTEREST_STEP = 5, INTEREST_CAP = 5; // $1 per $5 held, cap $5 (spec §2.7)
+  const RESOLVE_MS = 650;                    // post-resolve beat, divided by speed
+  const PIP_GLYPHS = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]; // ⚀–⚅
+
+  /* ---------------- the dice ----------------
+     run.faces: 12 × {id, die: 0|1, idx: 0-5, pips: 1-6}. A roll picks
+     one face per die uniformly (seeded); the roll's TOTAL is the sum of
+     the chosen faces' CURRENT pips — re-pipping a face warps the whole
+     distribution, and pips double as the face's chip value. */
+  function freshFaces() {
+    const faces = [];
+    let id = 1;
+    for (let die = 0; die < 2; die++)
+      for (let idx = 0; idx < 6; idx++) faces.push({ id: id++, die, idx, pips: idx + 1 });
+    return faces;
+  }
+
+  // skip tags (spec §2.3) — pre-rolled per ante, shown on the card before you commit
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +1 shooter turn." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder ----------------
+     Weakest → strongest; every roll emits its single highest-qualifying
+     event (Craps Out and Seven-Out score nothing). The two faces add
+     their pip counts to base chips before mult — note Crimson Eyes
+     carries the smallest pip payload (1+1), so its base does the work. */
+  const LADDER = [
+    { rung: 1,  key: "box",       name: "Box Roll",     chips: 10,  mult: 1,  up: { c: 10, m: 1 } },
+    { rung: 2,  key: "horn",      name: "Horn Roll",    chips: 20,  mult: 2,  up: { c: 10, m: 1 } },
+    { rung: 3,  key: "hardway",   name: "Hardway",      chips: 30,  mult: 2,  up: { c: 15, m: 1 } },
+    { rung: 4,  key: "pointset",  name: "Point Set",    chips: 35,  mult: 2,  up: { c: 15, m: 2 } },
+    { rung: 5,  key: "natural",   name: "Natural",      chips: 45,  mult: 3,  up: { c: 20, m: 2 } },
+    { rung: 6,  key: "made",      name: "Point Made",   chips: 60,  mult: 4,  up: { c: 20, m: 2 } },
+    { rung: 7,  key: "fast",      name: "Fast Point",   chips: 70,  mult: 5,  up: { c: 25, m: 2 } },
+    { rung: 8,  key: "hardpoint", name: "Hard Point",   chips: 80,  mult: 6,  up: { c: 25, m: 3 } },
+    { rung: 9,  key: "boxcars",   name: "Boxcars",      chips: 100, mult: 8,  up: { c: 30, m: 3 } },
+    { rung: 10, key: "crimson",   name: "Crimson Eyes", chips: 150, mult: 12, up: { c: 40, m: 5 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+  const MADE_KEYS = new Set(["made", "fast", "hardpoint"]);
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes (flat / scaling / conditional / economy /
+     ×mult / utility). onEvent mutates ctx.chips / ctx.mult and runs in
+     STRICT charm-bar order, left to right. ctx.roll carries
+     {total, doubles, phase, point, pointRolls, pointsMade}. */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat — always-on chips
+    hardpin:   { name: "The Hardway Pin", type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+25 Chips on every doubles event",
+      onEvent: (i, c) => { if (c.roll.doubles) c.chips += 25; } },
+    railpolish:{ name: "Rail Polish",     type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+4 Chips per pip showing on the dice",
+      onEvent: (i, c) => { c.chips += 4 * c.roll.total; } },
+    comecomp:  { name: "Come Bet Comp",   type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+60 Chips on come-out events (Natural, Point Set)",
+      onEvent: (i, c) => { if (c.roll.phase === "comeout") c.chips += 60; } },
+    // scaling — grows over the run
+    hothand:   { name: "The Hot Hand",    type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per Point Made this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onPointMade: i => { i.state.m += 1; } },
+    dicelog:   { name: "Dice Setter's Log", type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ c: 0 }),
+      desc: s => `+${s.c} Chips on every event (+4 per shooter turn completed)`,
+      onEvent: (i, c) => { c.chips += i.state.c; },
+      onTurnEnd: i => { i.state.c += 4; } },
+    grudge7:   { name: "Seven's Grudge",  type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per Seven-Out suffered this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onSevenOut: i => { i.state.m += 1; } },
+    // conditional
+    inside68:  { name: "Inside Numbers",  type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×2 Mult on every event while the point is 6 or 8",
+      onEvent: (i, c) => { if (c.roll.phase === "point" && (c.roll.point === 6 || c.roll.point === 8)) c.mult *= 2; } },
+    outside:   { name: "Outside Track",   type: "conditional", rarity: "Uncommon", cost: 5,
+      desc: () => "+30 Chips on every event while the point is 4 or 10",
+      onEvent: (i, c) => { if (c.roll.phase === "point" && (c.roll.point === 4 || c.roll.point === 10)) c.chips += 30; } },
+    heater:    { name: "On a Heater",     type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+4 Mult on every event once 2+ points have been made this turn",
+      onEvent: (i, c) => { if (c.roll.pointsMade >= 2) c.mult += 4; } },
+    gutter:    { name: "Gutter Roll",     type: "conditional", rarity: "Common", cost: 4,
+      desc: () => "+50 Chips when the roll totals 4 or less",
+      onEvent: (i, c) => { if (c.roll.total <= 4) c.chips += 50; } },
+    // economy
+    grind:     { name: "The Grind",       type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $1 per point-phase roll survived",
+      onRollResolved: (i, e) => { if (e.phase === "point" && !e.sevenOut) { e.run.money += 1; e.moneyGained.n += 1; } } },
+    vig:       { name: "The Vig",         type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["The Vig", 3] },
+    cvault:    { name: "Crimson Vault",   type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    backer:    { name: "The Backer",      type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    // ×mult
+    royalty:   { name: "Pass Line Royalty", type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×4 Mult on Point Made events (including Fast and Hard)",
+      onEvent: (i, c) => { if (MADE_KEYS.has(c.event.key)) c.mult *= 4; } },
+    brulant:   { name: "Le Rouge Brûlant", type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every event",
+      onEvent: (i, c) => { c.mult *= 1.5; } },
+    goldenarm: { name: "The Golden Arm",  type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×2 Mult on every point-phase event",
+      onEvent: (i, c) => { if (c.roll.phase === "point") c.mult *= 2; } },
+    // utility
+    peek:      { name: "The Peek",        type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "One die is rolled and revealed before you commit the throw; a re-roll spent at the peek re-rolls just that die",
+      peek: true },
+    sparedice: { name: "Spare Dice",      type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Re-roll each blind",
+      extraRerolls: 1 },
+    secondwind:{ name: "Second Wind",     type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+1 Shooter turn each blind",
+      extraTurns: 1 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2); // half cost, rounded up (spec §2.7)
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] === true ? 0 : (CHARMS[inst.id][flag] ?? 0)), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     10 cards, three power tiers, 2 carry slots. Deck manipulation =
+     re-pipping the 12 faces: The Filer files pips off, The Loader and
+     Loaded Dice add them, The Carver and Les Yeux Rouges cut a face to
+     a single crimson pip. use kinds: instant / chooser / target. */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    // tier I — minor
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    filer:    { name: "The Filer",       tier: 1, cost: 4, use: "target", target: { kind: "down", count: 1 },
+      desc: "File a chosen face down by one pip (minimum 1)" },
+    // tier II — major
+    housemarker: { name: "House Marker", tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    loader:   { name: "The Loader",      tier: 2, cost: 6, use: "target", target: { kind: "up", count: 1 },
+      desc: "Load a chosen face up by one pip (maximum 6)" },
+    carver:   { name: "The Carver",      tier: 2, cost: 7, use: "target", target: { kind: "one", count: 1 },
+      desc: "Carve a chosen face down to a single pip" },
+    tempo:    { name: "Tempo Bottle",    tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+1 shooter turn this blind",
+      apply: () => { blind.turnsTotal += 1; blind.turnsLeft += 1; return "+1 shooter turn"; } },
+    // tier III — prime
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    cube:     { name: "Loaded Dice",     tier: 3, cost: 9, use: "target", target: { kind: "up", count: 3 },
+      desc: "Load up to three chosen faces up by one pip each (maximum 6)" },
+    yeuxrouges: { name: "Les Yeux Rouges", tier: 3, cost: 9, use: "target", target: { kind: "one", count: 1 }, bumpCrimson: true,
+      desc: "Carve a chosen face to a single pip; Crimson Eyes levels up twice" }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warping effects (spec §2.4) ----------------
+     One is rolled per ante (seeded) and rules the Boss Blind. */
+  const BOSSES = {
+    coldtable: { name: "The Cold Table",
+      desc: "Hardways score nothing — every doubles event is iced" },
+    ironpoint: { name: "The Iron Point",
+      desc: "Box Rolls score nothing" },
+    tax:       { name: "The Tax",
+      desc: "Seven-Out also costs $3" },
+    marathon:  { name: "The Marathon", minAnte: 2,
+      desc: "The point can't be made until it has survived 3 point-phase rolls" },
+    cursedpair:{ name: "The Cursed Pair", minAnte: 2,
+      desc: "Point-phase doubles count as Seven-Out" },
+    rake:      { name: "The Rake",
+      desc: "Each shooter turn costs $1" },
+    pitboss:   { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" },
+    eye:       { name: "The Eye in the Sky", minAnte: 3,
+      desc: "No scoring event may fire twice this blind — repeats score nothing" },
+    shortleash:{ name: "The Short Leash", minAnte: 2,
+      desc: "One fewer shooter turn this blind" },
+    blindcup:  { name: "The Blind Cup",
+      desc: "Throws resolve under the cup — you commit or re-roll without seeing the dice" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  // active boss id, or null off the boss blind
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  // exponential target curve (spec §2.3)
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ---------------- state ---------------- */
+  let blind = null;     // {idx, target, score, turnsTotal, turnsLeft, rerollsTotal, rerollsLeft, won, fired, banned, ...}
+  let turn = null;      // {phase:'comeout'|'point', point, pointRolls, pointsMade, rollsThisTurn, rolled, paid}
+  let pending = null;   // {fA, fB, stage:'peek'|'pending'} — a thrown, unresolved roll
+  let lastSeed = "";
+  let targeting = null; // {idx, kind, left, applied, bump, name} while a targeted omen aims at die faces
+  let chooserOmenIdx = null;
+
+  /* ---------------- dice helpers ----------------
+     All take explicit (run, …) so the headless simulator runs the exact
+     same code. One PRNG draw per die. */
+  const rollOne = (run, die) => run.faces[die * 6 + Rouge.rng.int(0, 5)];
+  const rollPair = run => [rollOne(run, 0), rollOne(run, 1)];
+
+  function eventBase(e, run = Rouge.run.current) { // ladder level (Markers)
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    return { chips: e.chips + lvl * e.up.c, mult: e.mult + lvl * e.up.m };
+  }
+
+  const DOUBLES_RUNGS = new Set(["hardway", "hardpoint", "boxcars", "crimson"]);
+  const TURN_ROLL_CAP = 100; // safety: degenerate re-pipped dice can make 7 impossible
+
+  /* headless roll resolver — the live table and CC.simulate share this.
+     Mutates turnState (phase/point/pointRolls/pointsMade) and run.stats;
+     scores the roll's single highest-qualifying event through the charm
+     pipeline. Returns {gain, detail, label, turnEnd, …}. */
+  function resolveRollCore(run, blindState, turnState, boss, faces) {
+    const total = faces[0].pips + faces[1].pips;
+    const doubles = faces[0].pips === faces[1].pips;
+    const phaseAtThrow = turnState.phase;
+    const pointAtThrow = turnState.point;
+    turnState.rollsThisTurn = (turnState.rollsThisTurn ?? 0) + 1;
+    turnState.rolled = true;
+    let evKey = null, label = "", turnEnd = false, pointMade = false, sevenOut = false, crapsOut = false;
+
+    if (phaseAtThrow === "comeout") {
+      if (total === 7 || total === 11) { evKey = "natural"; label = `NATURAL ${total}`; }
+      else if (total === 2 || total === 3 || total === 12) { crapsOut = true; turnEnd = true; label = `CRAPS OUT — ${total}`; }
+      else { evKey = "pointset"; turnState.phase = "point"; turnState.point = total; turnState.pointRolls = 0; label = `POINT SET — ${total}`; }
+    } else {
+      turnState.pointRolls++;
+      if (total === 7 || (boss === "cursedpair" && doubles)) {
+        sevenOut = true; turnEnd = true;
+        label = total === 7 ? "SEVEN-OUT" : "CURSED PAIR — OUT";
+        if (boss === "tax") run.money = Math.max(0, run.money - 3); // The Tax
+      } else if (total === pointAtThrow && !(boss === "marathon" && turnState.pointRolls <= 3)) {
+        evKey = doubles ? "hardpoint" : (turnState.pointRolls === 1 ? "fast" : "made");
+        pointMade = true;
+        label = `POINT MADE — ${pointAtThrow}`;
+        turnState.pointsMade++;
+        turnState.phase = "comeout"; turnState.point = null; turnState.pointRolls = 0;
+      } else {
+        if (doubles && faces[0].pips === 1) evKey = "crimson";
+        else if (doubles && faces[0].pips === 6) evKey = "boxcars";
+        else if (doubles) evKey = "hardway";
+        else if (total === 2 || total === 3 || total === 11 || total === 12) evKey = "horn";
+        else evKey = "box";
+        label = boss === "marathon" && total === pointAtThrow ? `${total} — THE MARATHON HOLDS` : `${total}`;
+      }
+    }
+    if (!turnEnd && turnState.rollsThisTurn >= TURN_ROLL_CAP) {
+      turnEnd = true; // the croupier calls the dice before the heat death of the table
+      label += " · CALLED — THE TABLE COOLS";
+    }
+
+    // roll context for charms: phase/point AT THROW TIME, counters after update
+    const rollCtx = { total, doubles, phase: phaseAtThrow, point: pointAtThrow ?? turnState.point,
+                      pointRolls: turnState.pointRolls, pointsMade: turnState.pointsMade };
+    let gain = 0, detail = null;
+    if (evKey) {
+      const e = RUNG[evKey];
+      let voided = null;
+      if (boss === "coldtable" && DOUBLES_RUNGS.has(evKey)) voided = "ICED";
+      else if (boss === "ironpoint" && evKey === "box") voided = "IRONED FLAT";
+      else if (boss === "pitboss" && evKey === blindState.banned) voided = "BANNED";
+      else if (boss === "eye" && blindState.fired.has(evKey)) voided = "SEEN — NO REPEATS";
+      if (voided) detail = { name: e.name, voided };
+      else {
+        blindState.fired.add(evKey);
+        const base = eventBase(e, run);
+        const ctx = { event: e, faces, chips: base.chips + total, mult: base.mult, roll: rollCtx, run };
+        // charms apply in STRICT left-to-right bar order
+        for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx);
+        gain = Math.floor(ctx.chips * ctx.mult);
+        detail = { name: e.name, chips: ctx.chips, mult: ctx.mult, score: gain };
+      }
+    }
+    run.stats.rolls++;
+    if (pointMade) {
+      run.stats.points++;
+      for (const inst of run.charms) CHARMS[inst.id].onPointMade?.(inst); // The Hot Hand
+    }
+    if (sevenOut) for (const inst of run.charms) CHARMS[inst.id].onSevenOut?.(inst); // Seven's Grudge
+    const moneyGained = { n: 0 };
+    for (const inst of run.charms) // The Grind, Dice Setter's Log
+      CHARMS[inst.id].onRollResolved?.(inst, { phase: phaseAtThrow, sevenOut, gain, run, moneyGained });
+    return { evKey, gain, detail, label, turnEnd, pointMade, sevenOut, crapsOut, total, doubles,
+             moneyGained: moneyGained.n };
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+  const freshTurn = () => ({ phase: "comeout", point: null, pointRolls: 0, pointsMade: 0,
+                             rollsThisTurn: 0, rolled: false, paid: false });
+
+  /* ---------------- blind flow ---------------- */
+  // older saves predate some fields — fill them in
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { turns: 0, rolls: 0, points: 0, best: 0, beaten: 0, skips: 0, rerolls: 0 };
+    run.stats.rolls ??= 0;
+    run.stats.points ??= 0;
+    run.stats.rerolls ??= 0;
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.faces) run.faces = freshFaces();
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0); // stale aiming from a restarted blind
+    // tags apply to "your next blind": read them now, consume them at collection
+    // so a mid-blind reload (which restarts the blind) doesn't burn them
+    const usedTags = [];
+    let turns = TURNS_PER_BLIND + charmFlag(run, "extraTurns");
+    let rerolls = REROLLS_PER_BLIND + charmFlag(run, "extraRerolls");
+    let rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { turns++; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    if (idx === 2 && run.boss === "shortleash") turns = Math.max(1, turns - 1);
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              turnsTotal: turns, turnsLeft: turns,
+              rerollsTotal: rerolls, rerollsLeft: rerolls,
+              won: false, rewardMult, usedTags,
+              fired: new Set(), banned: null };
+    if (idx === 2 && run.boss === "pitboss") {
+      // most-leveled rung; ties go to the highest rung
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    const bb = $("boss-banner");
+    if (idx === 2 && run.boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[run.boss].name}</b> &mdash; ${BOSSES[run.boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    turn = freshTurn();
+    pending = null;
+    $("breakdown-list").innerHTML = '<li class="flavor">Event breakdown appears here after each roll.</li>';
+    $("result-label").textContent = "The bones are warm. Throw when ready.";
+    $("result-gain").textContent = "";
+    $("win-banner").classList.remove("show");
+    $("win-banner").innerHTML = "";
+    renderDice();
+    renderStatus();
+    renderFacesPanel();
+    renderCharms();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    syncControls();
+    Rouge.router.go("table");
+  }
+
+  /* ---------------- the Shooter Turn — live table flow ----------------
+     Throw → dice land PENDING → Resolve, or Re-roll to take the throw
+     back (the discard analog). With The Peek, die A is rolled and shown
+     first; a re-roll spent at the peek re-rolls just that die. With no
+     charges left the throw resolves itself. */
+  function throwDice() {
+    if (!blind || blind.won || pending || !turn || blind.turnsLeft === 0 || targeting) return;
+    const run = Rouge.run.current;
+    if (bossId() === "rake" && !turn.paid) { // The Rake takes its dollar per shooter
+      turn.paid = true;
+      run.money = Math.max(0, run.money - 1);
+      renderRail();
+    }
+    const usePeek = anyCharmFlag(run, "peek") && bossId() !== "blindcup";
+    if (usePeek) {
+      pending = { fA: rollOne(run, 0), fB: null, stage: "peek" };
+    } else {
+      const [a, b] = rollPair(run);
+      pending = { fA: a, fB: b, stage: "pending" };
+    }
+    Rouge.run.persist(); // commit the advanced rng state — the dice can't be save-scummed
+    Rouge.audio.play("dice");
+    renderDice();
+    syncControls();
+    maybeAutoResolve();
+  }
+
+  function commitPeek() {
+    if (!pending || pending.stage !== "peek") return;
+    pending.fB = rollOne(Rouge.run.current, 1);
+    pending.stage = "pending";
+    Rouge.run.persist();
+    Rouge.audio.play("dice");
+    renderDice();
+    syncControls();
+    maybeAutoResolve();
+  }
+
+  function peekReroll() { // re-roll just the revealed die
+    if (!pending || pending.stage !== "peek" || blind.rerollsLeft === 0) return;
+    blind.rerollsLeft--;
+    Rouge.run.current.stats.rerolls++;
+    pending.fA = rollOne(Rouge.run.current, 0);
+    Rouge.run.persist();
+    Rouge.audio.play("dice");
+    renderDice();
+    renderRail();
+    syncControls();
+  }
+
+  function rerollThrow() { // take the whole throw back, before it resolves
+    if (!pending || pending.stage !== "pending" || blind.rerollsLeft === 0) return;
+    blind.rerollsLeft--;
+    Rouge.run.current.stats.rerolls++;
+    const [a, b] = rollPair(Rouge.run.current);
+    pending.fA = a; pending.fB = b;
+    Rouge.run.persist();
+    Rouge.audio.play("dice");
+    renderDice();
+    renderRail();
+    syncControls();
+    maybeAutoResolve();
+  }
+
+  function maybeAutoResolve() { // no charges, no decision — the throw stands
+    if (pending && pending.stage === "pending" && blind.rerollsLeft === 0) resolveThrow();
+  }
+
+  function resolveThrow() {
+    if (!pending || pending.stage !== "pending") return;
+    const run = Rouge.run.current;
+    const boss = bossId();
+    const faces = [pending.fA, pending.fB];
+    pending = null;
+    const res = resolveRollCore(run, blind, turn, boss, faces);
+    blind.score += res.gain;
+    if (res.gain > run.stats.best) run.stats.best = res.gain;
+    if (res.pointMade) Rouge.audio.play("point");
+
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    $("roll-label").textContent = res.label;
+    $("result-label").textContent =
+      res.crapsOut ? "Craps out — the bones turn cold." :
+      res.sevenOut ? (boss === "tax" ? "Seven-out — and the house taxes the corpse." : "Seven-out.") :
+      res.pointMade ? "Point made — the hand stays hot." :
+      res.gain > 0 ? "The table pays." : "The house keeps this one.";
+    $("result-gain").textContent = res.gain > 0
+      ? `+${fmt(res.gain)}${res.moneyGained ? ` · +$${res.moneyGained}` : ""}`
+      : (res.moneyGained ? `+$${res.moneyGained}` : "");
+    $("breakdown-list").innerHTML = res.detail
+      ? (res.detail.voided
+        ? `<li><span class="ev">${res.detail.name}</span><span class="math"><b style="color:var(--lipstick)">${res.detail.voided}</b></span></li>`
+        : `<li><span class="ev">${res.detail.name}</span><span class="math"><span class="c">${fmt(res.detail.chips)}</span> × <span class="m">${fmtMult(res.detail.mult)}</span> = <b>${fmt(res.detail.score)}</b></span></li>`)
+      : '<li class="flavor">No event — the roll scores nothing.</li>';
+
+    renderDice(faces); // reveal — even from under The Blind Cup
+    renderStatus();
+    renderCharms(); // scaling charms update their descriptions
+    renderRail();   // before win/lose — loseRun abandons the run and renderRail would bail out
+    if (blind.score >= blind.target && !blind.won) winBlind();
+    else if (res.turnEnd) {
+      blind.turnsLeft--;
+      run.stats.turns++;
+      run.charms.forEach(inst => CHARMS[inst.id].onTurnEnd?.(inst)); // Dice Setter's Log
+      if (blind.turnsLeft === 0) { syncControls(); Rouge.run.persist(); loseRun(); return; }
+      turn = freshTurn();
+      renderStatus();
+      renderRail();
+    }
+    syncControls(); // after winBlind so a won blind locks the throw button
+    Rouge.run.persist();
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Craps Crimson rolls a respectful seven."
+      : `The dice had other plans — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed],
+      ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`],
+      ["Blinds beaten", run.stats.beaten],
+      ["Blinds skipped", run.stats.skips],
+      ["Turns shot", run.stats.turns],
+      ["Rolls thrown", run.stats.rolls],
+      ["Points made", run.stats.points],
+      ["Re-rolls used", run.stats.rerolls],
+      ["Best roll", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens aim at the 12 die faces: a modal shows both dice and
+     clicks file / load / carve pips. Only between throws. */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    const midThrow = !!pending;
+    if (o.use === "target") return onTable && !!blind && !blind.won && !midThrow;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && !midThrow && blind.turnsLeft > 0;
+    return !midThrow || !onTable; // instants & choosers wait for the throw to resolve
+  }
+
+  function eligibleTargets(kind) {
+    const run = Rouge.run.current;
+    if (kind === "down") return run.faces.filter(f => f.pips > 1);
+    if (kind === "up")   return run.faces.filter(f => f.pips < 6);
+    if (kind === "one")  return run.faces.filter(f => f.pips !== 1);
+    return [];
+  }
+
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") {
+      const note = o.apply(run);
+      consumeOmen(idx, note);
+    } else if (o.use === "chooser") {
+      openChooser(idx);
+    } else { // target: pick die faces in the modal
+      targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0,
+                    bump: !!o.bumpCrimson, name: o.name };
+      openTargetModal();
+    }
+  }
+
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    renderFacesPanel();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+
+  const VERBS = { down: "file down", up: "load up", one: "carve to one pip" };
+  function openTargetModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    renderTargetGrid();
+    $("chooser").classList.add("show");
+  }
+
+  function renderTargetGrid() {
+    const eligible = new Set(eligibleTargets(targeting.kind).map(f => f.id));
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = eligible.size
+      ? `Click ${targeting.left} face${targeting.left > 1 ? "s" : ""} to ${VERBS[targeting.kind]}`
+      : "No eligible faces remain.";
+    const grid = $("chooser-cards");
+    grid.innerHTML = "";
+    const run = Rouge.run.current;
+    for (let die = 0; die < 2; die++) {
+      const row = document.createElement("div");
+      row.className = "faces-row";
+      const tag = document.createElement("span");
+      tag.className = "die-tag";
+      tag.textContent = die === 0 ? "DIE A" : "DIE B";
+      row.appendChild(tag);
+      run.faces.filter(f => f.die === die).forEach(f => {
+        const chip = faceChipEl(f);
+        if (eligible.has(f.id)) {
+          chip.addEventListener("click", () => applyTarget(f.id));
+        } else {
+          chip.style.opacity = ".3";
+          chip.style.cursor = "not-allowed";
+        }
+        row.appendChild(chip);
+      });
+      grid.appendChild(row);
+    }
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+    if (eligible.size === 0 && targeting.applied > 0) endTargeting(true); // nothing left to aim at
+  }
+
+  function applyTarget(id) {
+    const run = Rouge.run.current;
+    const face = run.faces.find(f => f.id === id);
+    if (!face) return;
+    if (targeting.kind === "down") face.pips = Math.max(1, face.pips - 1);
+    if (targeting.kind === "up") face.pips = Math.min(6, face.pips + 1);
+    if (targeting.kind === "one") {
+      face.pips = 1;
+      if (targeting.bump) bumpLevel(run, "crimson", 2); // Les Yeux Rouges
+    }
+    targeting.applied++;
+    targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderTargetGrid();
+  }
+
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cards").innerHTML = "";
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the bones remember");
+    else renderOmens();
+    renderFacesPanel();
+    syncControls();
+  }
+
+  function openChooser(idx) { // House Marker — pick a ladder rung
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-cards").innerHTML = "";
+    const opts = $("chooser-options");
+    opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => {
+        bumpLevel(run, e.key, 2); // House Marker levels twice
+        $("chooser").classList.remove("show");
+        consumeOmen(chooserOmenIdx, `${e.name} leveled up`);
+        chooserOmenIdx = null;
+      });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+
+  /* ---------------- shop ----------------
+     2 item slots, seeded stock, escalating reroll that resets each shop
+     visit. Stock persists in the run save: reloading mid-shop cannot
+     re-roll the offer. */
+  /* ---------------- rendering — the felt ---------------- */
+  function faceChipEl(face) {
+    const chip = document.createElement("div");
+    chip.className = "face-chip" + (face.pips !== face.idx + 1 ? " modded" : "");
+    chip.textContent = PIP_GLYPHS[face.pips];
+    chip.title = `Die ${face.die === 0 ? "A" : "B"} · face ${face.idx + 1} · ${face.pips} pip${face.pips > 1 ? "s" : ""}`;
+    return chip;
+  }
+
+  function renderFacesPanel() {
+    const run = Rouge.run.current;
+    const view = $("faces-view");
+    if (!run || !view) return;
+    ensureRunShape(run);
+    view.innerHTML = "";
+    for (let die = 0; die < 2; die++) {
+      const row = document.createElement("div");
+      row.className = "faces-row";
+      const tag = document.createElement("span");
+      tag.className = "die-tag";
+      tag.textContent = die === 0 ? "DIE A" : "DIE B";
+      row.appendChild(tag);
+      run.faces.filter(f => f.die === die).forEach(f => row.appendChild(faceChipEl(f)));
+      view.appendChild(row);
+    }
+  }
+
+  function renderDice(resolvedFaces = null) {
+    const a = $("die-a"), b = $("die-b");
+    const cup = bossId() === "blindcup" && pending;
+    const setDie = (el, face, hiddenWhy) => {
+      el.classList.remove("empty", "hidden-cup", "pendingShake");
+      if (hiddenWhy === "cup") { el.classList.add("hidden-cup"); el.textContent = "?"; }
+      else if (!face) { el.classList.add("empty"); el.textContent = "?"; }
+      else el.textContent = PIP_GLYPHS[face.pips];
+      if (face || hiddenWhy) { void el.offsetWidth; el.classList.add("pendingShake"); }
+    };
+    if (resolvedFaces) { // the throw resolved — always face up, even from under the cup
+      setDie(a, resolvedFaces[0], null);
+      setDie(b, resolvedFaces[1], null);
+      return;
+    }
+    if (!pending) { // idle felt
+      setDie(a, null, null);
+      setDie(b, null, null);
+      $("roll-label").textContent = "";
+      return;
+    }
+    if (pending) {
+      setDie(a, cup ? null : pending.fA, cup ? "cup" : null);
+      setDie(b, cup ? null : (pending.stage === "peek" ? null : pending.fB), cup ? "cup" : null);
+      $("roll-label").textContent = cup ? "UNDER THE CUP"
+        : pending.stage === "peek" ? `THE PEEK — DIE A SHOWS ${pending.fA.pips}`
+        : `PENDING — ${pending.fA.pips + pending.fB.pips}`;
+    }
+  }
+
+  function renderStatus() {
+    const puck = $("point-puck");
+    const st = $("cc-status");
+    if (!turn) return;
+    if (turn.phase === "point") {
+      st.childNodes[0].textContent = `POINT PHASE — ROLL ${turn.pointRolls + 1} `;
+      puck.classList.remove("off");
+      puck.textContent = turn.point;
+    } else {
+      st.childNodes[0].textContent = turn.pointsMade > 0 ? `COME-OUT — ${turn.pointsMade} POINT${turn.pointsMade > 1 ? "S" : ""} CHAINED ` : "COME-OUT ";
+      puck.classList.add("off");
+      puck.textContent = "OFF";
+    }
+  }
+
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-turns").textContent = `${blind.turnsLeft} / ${blind.turnsTotal}`;
+    $("rail-rerolls").textContent = `${blind.rerollsLeft} / ${blind.rerollsTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length
+      ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ")
+      : "—";
+  }
+
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won;
+    $("btn-throw").disabled = lock || !!pending || blind.turnsLeft === 0;
+    const showResolve = !lock && pending && pending.stage === "pending";
+    const showPeek = !lock && pending && pending.stage === "peek";
+    $("btn-resolve").hidden = !showResolve;
+    $("btn-takeback").hidden = !showResolve || blind.rerollsLeft === 0;
+    $("btn-takeback").textContent = `Re-roll (${blind ? blind.rerollsLeft : 0})`;
+    $("btn-commit").hidden = !showPeek;
+    $("btn-peek-reroll").hidden = !showPeek || blind.rerollsLeft === 0;
+    $("turn-chip").textContent = blind ? `TURN ${blind.turnsTotal - blind.turnsLeft + 1} / ${blind.turnsTotal}` : "—";
+  }
+
+  /* ---------------- CC.simulate — headless balance harness ----------------
+     Plays n seeded runs through the REAL core (rollPair, resolveRollCore,
+     eventBase, buildCashout, pickStock) with a fixed greedy bot:
+     - throws until the turn ends; spends re-rolls to cancel point-phase
+       turn-enders (7s, and doubles under The Cursed Pair); never
+       re-rolls under The Blind Cup (it can't see the dice)
+     - ignores The Peek (human-only edge)
+     - buys any affordable charm/omen, additive charms left of ×mult,
+       omens used on acquisition (House Markers level Box Roll to lv4
+       then Point Made; The Loader/Loaded Dice raise the lowest face;
+       The Filer files the highest face of die B; The Carver and Les
+       Yeux Rouges carve die B's highest face; Tempo held), never
+       skips, never rerolls the shop, never sells
+     Touches neither the DOM nor the live run; restores the RNG state. */
+  function botPlayTurn(run, blindState, boss) {
+    const turnState = { phase: "comeout", point: null, pointRolls: 0, pointsMade: 0, rollsThisTurn: 0 };
+    if (boss === "rake") run.money = Math.max(0, run.money - 1);
+    for (;;) {
+      let faces = rollPair(run);
+      while (blindState.rerollsLeft > 0 && boss !== "blindcup" && turnState.phase === "point") {
+        const total = faces[0].pips + faces[1].pips;
+        const doubles = faces[0].pips === faces[1].pips;
+        if (total === 7 || (boss === "cursedpair" && doubles)) {
+          blindState.rerollsLeft--;
+          run.stats.rerolls++;
+          faces = rollPair(run);
+        } else break;
+      }
+      const res = resolveRollCore(run, blindState, turnState, boss, faces);
+      blindState.score += res.gain;
+      if (res.gain > run.stats.best) run.stats.best = res.gain;
+      if (blindState.score >= blindState.target) {
+        blindState.won = true;
+        blindState.unusedTurns = Math.max(0, blindState.turnsLeft - 1); // this turn is in use
+        return;
+      }
+      if (res.turnEnd) {
+        blindState.turnsLeft--;
+        run.stats.turns++;
+        run.charms.forEach(inst => CHARMS[inst.id].onTurnEnd?.(inst)); // Dice Setter's Log
+        return;
+      }
+    }
+  }
+
+  function simOneRun(seed) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null],
+      stats: { turns: 0, rolls: 0, points: 0, best: 0, beaten: 0, skips: 0, rerolls: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {},
+      faces: freshFaces(), boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (cond, msg) => { if (!cond) bugs.push(`${seed}: ${msg}`); };
+    let tempoHeld = 0;
+
+    const lowestFace = () => run.faces.reduce((m, f) => f.pips < m.pips ? f : m);
+    const highestOfDieB = () => run.faces.filter(f => f.die === 1).reduce((m, f) => f.pips > m.pips ? f : m);
+    const useOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.box ?? 0) >= 4 ? "made" : "box", 2); // floor first
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "loader") { const f = lowestFace(); if (f.pips < 6) f.pips++; }
+        else if (id === "cube") { for (let k = 0; k < 3; k++) { const f = lowestFace(); if (f.pips < 6) f.pips++; } }
+        else if (id === "filer") { const f = highestOfDieB(); if (f.pips > 1) f.pips--; }
+        else if (id === "carver") { highestOfDieB().pips = 1; }
+        else if (id === "yeuxrouges") { highestOfDieB().pips = 1; bumpLevel(run, "crimson", 2); }
+        else if (id === "tempo") tempoHeld++;
+        run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") {
+          if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) {
+            run.money -= CHARMS[entry.id].cost;
+            run.charms.push(newCharm(entry.id));
+          }
+        } else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) {
+          run.money -= OMENS[entry.id].cost;
+          run.consumables.push(entry.id);
+        }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useOmens();
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let turns = TURNS_PER_BLIND + charmFlag(run, "extraTurns") + tempoHeld;
+        tempoHeld = 0;
+        if (boss === "shortleash") turns = Math.max(1, turns - 1);
+        const rerolls = REROLLS_PER_BLIND + charmFlag(run, "extraRerolls");
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0,
+          turnsTotal: turns, turnsLeft: turns, rerollsTotal: rerolls, rerollsLeft: rerolls,
+          won: false, rewardMult: 1, usedTags: [], fired: new Set(), banned: null };
+        if (boss === "pitboss") {
+          let best = LADDER[0];
+          for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+          blindState.banned = best.key;
+        }
+        while (blindState.turnsLeft > 0 && !blindState.won) {
+          botPlayTurn(run, blindState, boss);
+          assert(Number.isFinite(blindState.score) && blindState.score >= 0, `bad score ${blindState.score} A${ante}/${bi}`);
+        }
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won,
+          turnsUsed: blindState.turnsTotal - blindState.turnsLeft, money: run.money,
+          boss: boss ?? undefined });
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money ${run.money} A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        shop();
+      }
+    }
+    rec.result = "WIN";
+    rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    for (let r = 1; r <= runs; r++) {
+      try {
+        const { rec, bugs } = simOneRun(`SIM-${r}`);
+        out.runs.push(rec);
+        out.bugs.push(...bugs);
+      } catch (err) {
+        out.bugs.push(`SIM-${r} crashed: ${err.message}`);
+      }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {} };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [] });
+        k.n++;
+        if (b.won) k.won++;
+        k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) {
+      k.ratios.sort((a, b) => a - b);
+      k.median = k.ratios[Math.floor(k.ratios.length / 2)];
+      k.pass = +(k.won / k.n).toFixed(2);
+      delete k.ratios;
+    }
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-throw").addEventListener("click", throwDice);
+    $("btn-resolve").addEventListener("click", resolveThrow);
+    $("btn-takeback").addEventListener("click", rerollThrow);
+    $("btn-commit").addEventListener("click", commitPeek);
+    $("btn-peek-reroll").addEventListener("click", peekReroll);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null;
+      turn = null;
+      pending = null;
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed; // easy retry of the same seed
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null;
+      turn = null;
+      pending = null;
+      Rouge.run.start(""); // fresh random seed
+    });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => {
+      if (targeting) { endTargeting(targeting.applied > 0); return; } // Done consumes, Cancel restores
+      $("chooser").classList.remove("show");
+      chooserOmenIdx = null;
+    });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") {
+        if (run) {
+          ensureRunShape(run);
+          if (run.shop) { run.shop = null; Rouge.run.persist(); } // shop closes; next visit re-rolls
+        }
+        renderBlindSelect();
+      }
+      if (e.detail.screen === "shop" && run) {
+        ensureRunShape(run);
+        if (!run.shop) rollShop();
+        renderShop();
+        renderCharms();
+        renderOmens();
+      }
+    });
+  });
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playWord: "shooter turns", unusedPlays: bs => bs.unusedTurns ?? bs.turnsLeft, ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           TURNS_PER_BLIND, REROLLS_PER_BLIND,
+           freshFaces, sellValue, omenSellValue,
+           get blind() { return blind; }, get turn() { return turn; },
+           get pending() { return pending; },
+           startBlind, skipBlind, throwDice, resolveThrow, rerollThrow, commitPeek, peekReroll,
+           cashOut, buyStock, sellCharm, moveCharm, rerollShop,
+           useOmen, sellOmen, simulate };
+})();
+window.CC = CC;
+
+/* plug Craps Crimson into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:cc",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { turns: 0, rolls: 0, points: 0, best: 0, beaten: 0, skips: 0, rerolls: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, faces: null, boss: null })
+});
+</script>
+</body>
+</html>

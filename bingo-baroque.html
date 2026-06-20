@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bingo Baroque — The Rouge Casino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* ====================================================================
+   THE ROUGE CASINO — design tokens (spec.md §4)
+   ==================================================================== */
+:root {
+  --noir-velvet:    #120D0A;
+  --noir-panel:     #1E1611;
+  --gold-leaf:      #C9A24B;
+  --champagne:      #EFD9A7;
+  --crimson-velvet: #8A1B2B;
+  --lipstick:       #C42847;
+  --ivory:          #F3E9D2;
+  --smoke:          #8C8278;
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body:    'EB Garamond', Georgia, serif;
+  --track-display: .14em;
+
+  --space-1: .35rem;
+  --space-2: .7rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
+  --radius:  2px;
+
+  --speed: 1;
+  --dur-fast: calc(.15s / var(--speed));
+  --dur-med:  calc(.30s / var(--speed));
+  --dur-slow: calc(.60s / var(--speed));
+}
+
+/* ==================== Base (template) ==================== */
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--noir-velvet);
+  color: var(--ivory);
+  font-family: var(--font-body);
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--gold-leaf);
+}
+button {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  background: transparent;
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  padding: .55rem 1.3rem;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+button:hover:not(:disabled) { background: var(--gold-leaf); color: var(--noir-velvet); }
+button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 2px; }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.primary { background: var(--crimson-velvet); border-color: var(--lipstick); color: var(--ivory); }
+button.primary:hover:not(:disabled) { background: var(--lipstick); }
+input[type="text"] {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ivory);
+  background: var(--noir-velvet);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius);
+  padding: .5rem .8rem;
+}
+input[type="text"]:focus { outline: none; border-color: var(--gold-leaf); }
+.panel {
+  background: var(--noir-panel);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(201, 162, 75, .5);
+  padding: var(--space-3);
+}
+.divider { color: var(--gold-leaf); letter-spacing: 1.2em; text-indent: 1.2em; opacity: .8; user-select: none; }
+.flavor { font-style: italic; color: var(--smoke); }
+.placeholder {
+  border: 1px dashed var(--smoke);
+  border-radius: var(--radius);
+  color: var(--smoke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-style: italic;
+  padding: var(--space-3);
+}
+
+#hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--noir-panel);
+  border-bottom: 1px solid var(--gold-leaf);
+}
+#hud .wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: .95rem;
+  letter-spacing: .22em;
+  color: var(--gold-leaf);
+}
+#hud .wordmark .rouge { color: var(--lipstick); }
+#hud .wordmark .game { color: var(--smoke); font-weight: 700; font-size: .75rem; }
+#hud .controls { display: flex; gap: var(--space-1); }
+#hud .controls button { padding: .35rem .8rem; font-size: .7rem; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  font-size: .8rem;
+  color: var(--smoke);
+  border-top: 1px solid rgba(201, 162, 75, .35);
+}
+
+main { flex: 1; overflow: auto; }
+.screen {
+  display: none;
+  min-height: 100%;
+  padding: var(--space-4);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.screen.active { display: flex; animation: screenIn var(--dur-med) ease-out; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+#screen-menu .title-block { position: relative; text-align: center; padding: var(--space-4) calc(var(--space-4) * 2); }
+#screen-menu .title-block::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem;
+  background: repeating-conic-gradient(from 0deg, rgba(201, 162, 75, .07) 0deg 5deg, transparent 5deg 12deg);
+  pointer-events: none;
+}
+#screen-menu h1 { font-weight: 900; font-size: clamp(2rem, 5vw, 3.2rem); }
+#screen-menu .menu-actions { display: flex; flex-direction: column; gap: var(--space-2); width: min(320px, 90%); }
+#screen-menu .seed-row { display: flex; gap: var(--space-1); }
+#screen-menu .seed-row input { flex: 1; }
+
+#screen-blind-select .blind-row { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+.blind-card { width: 230px; text-align: center; display: flex; flex-direction: column; gap: var(--space-2); }
+.blind-card h3 { font-size: 1rem; }
+.blind-card .reward { font-family: var(--font-display); color: var(--champagne); }
+.blind-card .status { font-family: var(--font-display); font-size: .75rem; letter-spacing: .12em; color: var(--smoke); }
+.blind-card.beaten .status { color: var(--gold-leaf); }
+.blind-card.boss { border-color: var(--lipstick); box-shadow: inset 0 0 0 4px var(--noir-panel), inset 0 0 0 5px rgba(196, 40, 71, .55); }
+.blind-card.boss h3 { color: var(--lipstick); }
+.blind-card .boss-desc { font-family: var(--font-body); font-style: italic; font-size: .85rem; color: var(--champagne); }
+.blind-card .skip-btn { font-size: .62rem; padding: .4rem .5rem; }
+
+#screen-table { align-items: stretch; }
+.table-layout {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-3);
+  flex: 1;
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.left-rail { grid-row: 1 / 3; display: flex; flex-direction: column; gap: var(--space-2); }
+.stat { padding: var(--space-2); }
+.stat .label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); }
+.stat .value { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--gold-leaf); }
+.stat .value.crimson { color: var(--lipstick); }
+
+.marquee {
+  background: var(--crimson-velvet);
+  border: 1px solid var(--gold-leaf);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px var(--crimson-velvet), inset 0 0 0 4px rgba(201, 162, 75, .6);
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+}
+.marquee h2 { color: var(--champagne); }
+.shop-slots { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.shop-slots .placeholder { width: 150px; height: 190px; }
+.shop-actions { display: flex; gap: var(--space-2); }
+
+/* ladder reference in the rail */
+.ladder { font-size: .78rem; padding: var(--space-2); }
+.ladder table { width: 100%; border-collapse: collapse; }
+.ladder td { padding: .08rem 0; }
+.ladder td:last-child { text-align: right; font-family: var(--font-display); }
+.ladder .c { color: var(--gold-leaf); }
+.ladder .m { color: var(--lipstick); }
+
+/* charms & shop stock */
+.charm-bar-wrap { padding: var(--space-2); }
+.bar-label { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--smoke); margin-bottom: var(--space-1); }
+.charm-bar { display: flex; gap: var(--space-2); flex-wrap: wrap; min-height: 18px; }
+.charm-card {
+  width: 162px; background: var(--noir-velvet); border: 1px solid var(--smoke);
+  border-radius: var(--radius); padding: var(--space-1) var(--space-2);
+  display: flex; flex-direction: column; gap: .25rem; font-size: .8rem;
+}
+.charm-card.r-common { border-color: var(--smoke); }
+.charm-card.r-uncommon { border-color: var(--gold-leaf); }
+.charm-card.r-rare { border-color: var(--lipstick); }
+.charm-card.r-legendary { border-color: var(--champagne); box-shadow: 0 0 8px rgba(239, 217, 167, .4); }
+.charm-top { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.charm-name { font-family: var(--font-display); font-size: .7rem; letter-spacing: .08em; color: var(--champagne); text-align: center; flex: 1; }
+.charm-type { font-size: .6rem; letter-spacing: .12em; color: var(--smoke); text-transform: uppercase; }
+.charm-desc { font-family: var(--font-body); color: var(--ivory); font-size: .78rem; flex: 1; }
+.charm-card .mv { padding: 0 .3rem; font-size: .55rem; border-color: var(--smoke); color: var(--smoke); }
+.charm-card .sell, .charm-card .buy { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+.shop-stock { display: flex; gap: var(--space-2); justify-content: center; }
+.shop-stock .charm-card { min-height: 160px; width: 180px; }
+.shop-stock .charm-card.sold { align-items: center; justify-content: center; color: var(--smoke); font-family: var(--font-display); letter-spacing: .14em; }
+.charm-card.t-minor { border-color: var(--smoke); }
+.charm-card.t-major { border-color: var(--gold-leaf); }
+.charm-card.t-prime { border-color: var(--lipstick); }
+.charm-card .use { padding: .25rem .5rem; font-size: .6rem; align-self: center; }
+
+.boss-banner {
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2); text-align: center;
+  font-family: var(--font-display); font-size: .8rem; letter-spacing: .12em; color: var(--champagne);
+}
+.boss-banner b { color: var(--ivory); }
+
+.win-banner {
+  display: none; text-align: center; padding: var(--space-2);
+  border: 1px solid var(--lipstick); background: var(--crimson-velvet); border-radius: var(--radius);
+  font-family: var(--font-display); letter-spacing: .14em; color: var(--champagne);
+}
+.win-banner.show { display: block; animation: screenIn var(--dur-med) ease-out; }
+.win-banner .wb-title { font-size: 1rem; margin-bottom: var(--space-1); }
+.wb-items {
+  list-style: none; max-width: 400px; margin: 0 auto var(--space-2);
+  font-family: var(--font-body); text-transform: none; letter-spacing: 0;
+}
+.wb-items li { display: flex; justify-content: space-between; gap: var(--space-3); font-size: .95rem; }
+.wb-items b { color: var(--champagne); }
+
+/* ====================================================================
+   BINGO BAROQUE — table layer styles
+   ==================================================================== */
+.bb-stage { grid-column: 2; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.bb-top { display: flex; gap: var(--space-3); align-items: flex-start; flex-wrap: wrap; }
+
+/* the 5x5 card */
+.bb-card-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.bb-card { display: grid; grid-template-columns: repeat(5, 54px); grid-auto-rows: 36px 54px 54px 54px 54px 54px; gap: 5px; }
+.bb-colhead {
+  font-family: var(--font-display); font-weight: 900; font-size: 1.3rem; text-align: center;
+  color: var(--gold-leaf); display: flex; align-items: center; justify-content: center;
+}
+.bb-colhead.cen { color: var(--lipstick); }
+.bb-cell {
+  position: relative; border: 1px solid rgba(201,162,75,.45); border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+  color: var(--ivory); background: var(--noir-velvet);
+}
+.bb-cell.daubed { color: var(--noir-velvet); }
+.bb-cell.daubed::after {
+  content: ""; position: absolute; inset: 5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--champagne), var(--gold-leaf) 65%);
+  z-index: 0; animation: daubIn var(--dur-fast) ease-out;
+}
+.bb-cell.daubed span { position: relative; z-index: 1; }
+@keyframes daubIn { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.bb-cell.free { color: var(--gold-leaf); font-size: .7rem; letter-spacing: .06em; }
+.bb-cell.locked { border-style: dashed; color: var(--smoke); }
+.bb-cell.locked::after { display: none; }
+.bb-cell.censored { background: #2a1418; }
+.bb-cell.censored::before {
+  content: "CENSORED"; position: absolute; bottom: 1px; left: 0; right: 0; text-align: center;
+  font-family: var(--font-body); font-size: .42rem; letter-spacing: .04em; color: var(--lipstick); z-index: 2;
+}
+.bb-cell.wildtarget { cursor: crosshair; animation: targetPulse calc(1s / var(--speed)) infinite alternate; }
+@keyframes targetPulse { from { filter: brightness(1); } to { filter: brightness(1.55); } }
+
+/* drawn ball + caller */
+.bb-caller { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-2); flex: 1; min-width: 220px; }
+.bb-ball {
+  width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, var(--ivory), #d9cba6 70%);
+  border: 3px solid var(--gold-leaf); color: var(--noir-velvet);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 3px 9px rgba(0,0,0,.65); animation: ballIn var(--dur-med) ease-out;
+}
+@keyframes ballIn { from { opacity: 0; transform: translateY(-16px) scale(.7); } to { opacity: 1; } }
+.bb-ball .bl { font-family: var(--font-display); font-weight: 900; font-size: 1.4rem; letter-spacing: .06em; }
+.bb-ball .bn { font-family: var(--font-display); font-weight: 900; font-size: 2.2rem; line-height: 1; }
+.bb-ball.empty { background: transparent; border: 3px dashed var(--smoke); color: var(--smoke); }
+.bb-ball.empty .bn { font-size: 2.4rem; }
+.bb-ball.hidden-cup {
+  background: var(--crimson-velvet); color: var(--gold-leaf);
+  background-image: repeating-linear-gradient(45deg, rgba(201,162,75,.25) 0 5px, transparent 5px 11px);
+}
+.bb-ball.miss { border-color: var(--smoke); filter: grayscale(.5) brightness(.8); }
+.bb-peek { font-family: var(--font-display); font-size: .75rem; letter-spacing: .1em; color: var(--smoke); min-height: 1.1rem; }
+.bb-pending-actions { display: flex; gap: var(--space-2); min-height: 2.4rem; align-items: center; }
+
+.bb-result { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.bb-result .gain { font-family: var(--font-display); font-size: 1.2rem; color: var(--champagne); }
+.breakdown { overflow: auto; max-height: 150px; padding: var(--space-2); }
+.breakdown ul { list-style: none; }
+.breakdown li { display: flex; justify-content: space-between; gap: var(--space-2); padding: .1rem 0; font-size: .92rem; }
+.breakdown .ev { font-family: var(--font-display); font-size: .78rem; letter-spacing: .1em; color: var(--gold-leaf); }
+.breakdown .math .c { color: var(--gold-leaf); }
+.breakdown .math .m { color: var(--lipstick); }
+.bb-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.bb-controls .cage-chip { font-family: var(--font-display); font-size: .8rem; letter-spacing: .1em; color: var(--smoke); margin-left: auto; }
+
+/* chooser / cage-targeting modal */
+#chooser {
+  display: none; position: fixed; inset: 0; z-index: 11;
+  background: rgba(18, 13, 10, .85); align-items: center; justify-content: center;
+}
+#chooser.show { display: flex; }
+#chooser .panel { display: flex; flex-direction: column; gap: var(--space-2); min-width: 320px; max-width: 760px; max-height: 88vh; overflow: auto; }
+#chooser-options { display: flex; flex-direction: column; gap: var(--space-1); }
+#chooser-options button { display: flex; justify-content: space-between; gap: var(--space-3); }
+#chooser-options button .lv { color: var(--smoke); }
+#chooser-note { font-style: italic; color: var(--smoke); text-align: center; }
+.cage-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .55rem; }
+.cage-col { display: flex; flex-direction: column; gap: .2rem; align-items: center; }
+.cage-col .ch { font-family: var(--font-display); font-weight: 900; color: var(--gold-leaf); }
+.cage-ball {
+  width: 30px; height: 24px; border-radius: 5px; font-size: .72rem;
+  border: 1px solid var(--smoke); background: var(--noir-velvet); color: var(--smoke);
+  display: flex; align-items: center; justify-content: center; font-family: var(--font-display);
+}
+.cage-ball.oncard { border-color: var(--gold-leaf); color: var(--ivory); }
+.cage-ball.daubed { background: var(--gold-leaf); color: var(--noir-velvet); }
+.cage-ball.loaded { box-shadow: 0 0 6px rgba(239,217,167,.85); }
+.cage-ball.pick { cursor: pointer; }
+.cage-ball.pick:hover { outline: 2px solid var(--champagne); }
+.cage-ball.gone { opacity: .18; text-decoration: line-through; }
+
+/* overlay (run over / victory) */
+#overlay {
+  display: none; position: fixed; inset: 0; z-index: 10;
+  background: rgba(18, 13, 10, .85);
+  align-items: center; justify-content: center;
+}
+#overlay.show { display: flex; }
+#overlay .panel { text-align: center; max-width: 460px; display: flex; flex-direction: column; gap: var(--space-2); }
+#overlay h2.lose { color: var(--lipstick); }
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.5rem; text-align: left; font-size: .92rem; }
+.end-stats > div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(201, 162, 75, .35); padding-bottom: .15rem; }
+.end-stats dt { color: var(--smoke); }
+.end-stats dd { color: var(--champagne); font-family: var(--font-display); font-size: .85rem; margin: 0; }
+.overlay-actions { display: flex; gap: var(--space-2); justify-content: center; }
+</style>
+</head>
+<body data-screen="">
+
+<header id="hud">
+  <div class="wordmark">THE <span class="rouge">ROUGE</span> CASINO <span class="game">&mdash; BINGO BAROQUE</span></div>
+  <div class="controls">
+    <button onclick="location.href='index.html'" title="Back to the lobby">&#8962; Lobby</button>
+    <button id="btn-speed" title="Animation speed">1&times;</button>
+    <button id="btn-mute" title="Toggle sound">SOUND ON</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================ MENU ============================ -->
+  <section class="screen" id="screen-menu">
+    <div class="title-block">
+      <h1>Bingo <span style="color:var(--lipstick)">Baroque</span></h1>
+      <p class="flavor">One card, daubed to the bone.</p>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="menu-actions">
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Seed (blank = random)" spellcheck="false">
+      </div>
+      <button class="primary" id="btn-new-run">New Run</button>
+      <button id="btn-continue" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- ======================== BLIND SELECT ======================== -->
+  <section class="screen" id="screen-blind-select">
+    <h2 id="ante-heading">Ante 1 / 8</h2>
+    <p class="flavor" id="blind-money">Money $4</p>
+    <p class="flavor" id="blind-tags"></p>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="blind-row" id="blind-cards"></div>
+  </section>
+
+  <!-- ============================ TABLE =========================== -->
+  <section class="screen" id="screen-table">
+    <div class="table-layout">
+      <aside class="left-rail">
+        <div class="stat panel"><div class="label">Blind</div><div class="value crimson" id="rail-blind">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Target</div><div class="value" id="rail-target">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Score</div><div class="value" id="rail-score">0</div></div>
+        <div class="stat panel"><div class="label">Draws</div><div class="value" id="rail-draws">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tosses</div><div class="value" id="rail-tosses">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Money</div><div class="value" id="rail-money">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Ante</div><div class="value" id="rail-ante">&mdash;</div></div>
+        <div class="stat panel"><div class="label">Tags</div><div class="value" id="rail-tags" style="font-size:.85rem">&mdash;</div></div>
+        <div class="ladder panel" id="rail-ladder"></div>
+      </aside>
+
+      <div class="bb-stage">
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-charm-count">CHARMS 0 / 5</div>
+          <div class="charm-bar" id="charm-bar"></div>
+        </div>
+        <div class="charm-bar-wrap panel">
+          <div class="bar-label" id="table-omen-count">OMENS 0 / 2</div>
+          <div class="charm-bar" id="omen-bar"></div>
+        </div>
+        <div class="boss-banner" id="boss-banner" hidden></div>
+        <div class="win-banner" id="win-banner"></div>
+
+        <div class="bb-top">
+          <div class="bb-card-wrap panel">
+            <div class="bb-card" id="bb-card"></div>
+          </div>
+          <div class="bb-caller panel">
+            <div class="bb-ball empty" id="bb-ball"><span class="bn">?</span></div>
+            <div class="bb-peek" id="bb-peek"></div>
+            <div class="bb-pending-actions">
+              <button class="primary" id="btn-resolve" hidden>Daub It</button>
+              <button id="btn-toss" hidden>Toss (3)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bb-result panel">
+          <div>
+            <div id="result-label" class="flavor">The cage is loaded. Draw when ready.</div>
+            <div class="gain" id="result-gain"></div>
+          </div>
+        </div>
+        <div class="breakdown panel"><ul id="breakdown-list"><li class="flavor">Event breakdown appears here after each draw.</li></ul></div>
+        <div class="bb-controls">
+          <button class="primary" id="btn-draw">Draw Ball</button>
+          <span class="cage-chip" id="cage-chip">CAGE 75</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SHOP ============================ -->
+  <section class="screen" id="screen-shop">
+    <div class="marquee"><h2>The Shop</h2></div>
+    <p class="flavor" id="shop-money"></p>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-charm-count">CHARMS 0 / 5</div>
+      <div class="charm-bar" id="shop-charms"></div>
+    </div>
+    <div class="charm-bar-wrap panel">
+      <div class="bar-label" id="shop-omen-count">OMENS 0 / 2</div>
+      <div class="charm-bar" id="shop-omens"></div>
+    </div>
+    <div class="divider">&#9670;&#9670;&#9670;</div>
+    <div class="shop-stock" id="shop-stock"></div>
+    <div class="shop-slots">
+      <div class="placeholder">VOUCHER</div>
+      <div class="placeholder">PACK</div>
+      <div class="placeholder">PACK</div>
+    </div>
+    <div class="shop-actions">
+      <button id="btn-reroll">Reroll $5</button>
+      <button class="primary" data-go="blind-select">Next Blind &rarr;</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="chooser">
+  <div class="panel">
+    <h3 id="chooser-title">Choose</h3>
+    <p id="chooser-note" hidden></p>
+    <div id="chooser-options"></div>
+    <div id="chooser-cage" hidden></div>
+    <button id="chooser-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-text"></p>
+    <div class="end-stats" id="overlay-stats"></div>
+    <div class="overlay-actions">
+      <button class="primary" id="overlay-new">New Run</button>
+      <button id="overlay-btn">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>bingo-baroque.html &middot; v0.1</span>
+  <span id="seed-chip">NO RUN</span>
+</footer>
+<script src="rouge-spine.js"></script>
+<script src="rouge-engine.js"></script>
+<script>
+"use strict";
+
+/* ====================================================================
+   BINGO BAROQUE — game module (spec.md §3.5, revised ladder)
+   Atomic object: the cage Ball — 75 of them; omens cull / load them now,
+   enhancements/seals attach later. Play: the Draw — 15 draws + 3 tosses
+   per blind; a fresh 5×5 card is dealt each blind FROM the pool's
+   available numbers (so culling never strands a square), and the cage is
+   a seeded shuffle of the pool. Draw lands a ball PENDING → Daub or Toss.
+   ==================================================================== */
+const BB = (() => {
+  const DRAWS_PER_BLIND = 24, TOSSES_PER_BLIND = 4; // raised from 15/3 in the 2026-06-13 hardening pass:
+  // at 15 draws the card never filled (~3 daubs/blind) so the pattern ladder — the whole game — was
+  // decorative and the curve died at A5. 24 draws let lines/frames/blackout actually cascade late.
+  const INTEREST_STEP = 5, INTEREST_CAP = 5; // $1 per $5 held, cap $5 (spec §2.7)
+  const MIN_PER_COL = 5;                      // the cull floor — every column stays dealable
+  const LETTERS = "BINGO";
+  const ballCol = n => Math.floor((n - 1) / 15);          // 0..4
+  const ballLetter = n => LETTERS[ballCol(n)];
+  const ballLabel = n => `${ballLetter(n)}-${n}`;
+
+  function freshBalls() {
+    const balls = [];
+    for (let n = 1; n <= 75; n++) balls.push({ id: n, n });
+    return balls;
+  }
+
+  // skip tags (spec §2.3) — pre-rolled per ante, shown on the card before you commit
+  const TAGS = {
+    comp:   { name: "Comp Tag",        desc: "Gain $8 after beating the next Boss Blind." },
+    tempo:  { name: "Tempo Tag",       desc: "Your next blind has +3 ball draws." },
+    roller: { name: "High-Roller Tag", desc: "Your next blind's reward is doubled." }
+  };
+
+  /* ---------------- scoring-event ladder ----------------
+     Weakest → strongest. Daub fires on every match; the pattern rungs
+     fire when a draw newly completes them (one draw can fire several).
+     Each daubed square in the pattern contributes its ball NUMBER as
+     chips before the base chips + mult apply — so the O column (61–75)
+     is naturally the richest, the B column (1–15) the leanest. The
+     Chandelier (top row + both diagonals) is the secret jackpot. */
+  const LADDER = [
+    { rung: 1,  key: "daub",    name: "Daub",            chips: 25,  mult: 2,  up: { c: 14, m: 1 } },
+    { rung: 2,  key: "three",   name: "Three-in-a-Row",  chips: 45,  mult: 3,  up: { c: 18, m: 2 } },
+    { rung: 3,  key: "four",    name: "Four-in-a-Row",   chips: 60,  mult: 3,  up: { c: 22, m: 2 } },
+    { rung: 4,  key: "line",    name: "Line",            chips: 80,  mult: 4,  up: { c: 28, m: 3 } },
+    { rung: 5,  key: "double",  name: "Double Line",     chips: 120, mult: 5,  up: { c: 35, m: 3 } },
+    { rung: 6,  key: "corners", name: "Four Corners",    chips: 110, mult: 5,  up: { c: 32, m: 3 } },
+    { rung: 7,  key: "stamp",   name: "Postage Stamp",   chips: 130, mult: 6,  up: { c: 38, m: 4 } },
+    { rung: 8,  key: "x",       name: "X Pattern",       chips: 160, mult: 7,  up: { c: 45, m: 4 } },
+    { rung: 9,  key: "frame",   name: "Frame",           chips: 210, mult: 9,  up: { c: 55, m: 5 } },
+    { rung: 10, key: "blackout",name: "Blackout",        chips: 270, mult: 12, up: { c: 70, m: 6 } },
+    { rung: 11, key: "chandelier", name: "The Chandelier", chips: 240, mult: 14, up: { c: 65, m: 7 } }
+  ];
+  const RUNG = Object.fromEntries(LADDER.map(e => [e.key, e]));
+  const PATTERN_KEYS = new Set(["line", "double", "corners", "stamp", "x", "frame", "blackout", "chandelier"]); // rung ≥ 4
+
+  /* ---------------- charms (spec §2.6) ----------------
+     20 charms, six archetypes. onEvent runs in STRICT charm-bar order,
+     left to right; ctx carries {event, cells, chips, mult, col, isFirst,
+     isLast, draw:{eventsCount}, board:{linesComplete, cornersDaubed},
+     run}. Counter hooks (onDaub / onLineDone / onPatternDone) fire AFTER
+     the draw is scored, so a scaler never boosts its own trigger. */
+  const CHARM_SLOTS = 5;
+  const CHARMS = {
+    // flat — always-on chips
+    dauber:   { name: "The Dauber's Mark", type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+20 Chips on every Daub",
+      onEvent: (i, c) => { if (c.event.key === "daub") c.chips += 20; } },
+    heavyink: { name: "Heavy Ink",      type: "flat", rarity: "Common", cost: 4,
+      desc: () => "+5 Chips per daubed square in the pattern",
+      onEvent: (i, c) => { c.chips += 5 * c.cells.length; } },
+    inkpot:   { name: "The Ink Pot",    type: "flat", rarity: "Common", cost: 3,
+      desc: () => "+70 Chips on each draw's first event",
+      onEvent: (i, c) => { if (c.isFirst) c.chips += 70; } },
+    // scaling — grows over the run
+    linetally:{ name: "Line Tally",     type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per Line completed this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onLineDone: i => { i.state.m += 1; } },
+    daubledger:{ name: "Daub Ledger",   type: "scaling", rarity: "Uncommon", cost: 6,
+      newState: () => ({ c: 0 }),
+      desc: s => `+${s.c} Chips on every event (+2 per daub this run)`,
+      onEvent: (i, c) => { c.chips += i.state.c; },
+      onDaub: i => { i.state.c += 2; } },
+    callersmem:{ name: "Caller's Memory", type: "scaling", rarity: "Rare", cost: 8,
+      newState: () => ({ m: 0 }),
+      desc: s => `+${s.m} Mult on every event (+1 per pattern, Line or better, completed this run)`,
+      onEvent: (i, c) => { c.mult += i.state.m; },
+      onPatternDone: i => { i.state.m += 1; } },
+    // conditional
+    centrestage:{ name: "Centre Stage", type: "conditional", rarity: "Uncommon", cost: 7,
+      desc: () => "×3 Mult on events completed in the N column",
+      onEvent: (i, c) => { if (c.col === 2) c.mult *= 3; } },
+    corneroffice:{ name: "Corner Office", type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+60 Chips on every event while all four corners are daubed",
+      onEvent: (i, c) => { if (c.board.cornersDaubed) c.chips += 60; } },
+    borderbaron:{ name: "Border Baron", type: "conditional", rarity: "Uncommon", cost: 6,
+      desc: () => "+5 Mult on Frame, Four Corners and Postage Stamp events",
+      onEvent: (i, c) => { if (c.event.key === "frame" || c.event.key === "corners" || c.event.key === "stamp") c.mult += 5; } },
+    linefever:{ name: "Line Fever",     type: "conditional", rarity: "Common", cost: 5,
+      desc: () => "+3 Mult per line already completed on the card",
+      onEvent: (i, c) => { c.mult += 3 * c.board.linesComplete; } },
+    // economy
+    consolation:{ name: "The Consolation Cage", type: "economy", rarity: "Common", cost: 4,
+      desc: () => "Gain $1 on every miss",
+      onMiss: (i, e) => { e.run.money += 1; e.moneyGained.n += 1; } },
+    vig:      { name: "The Vig",        type: "economy", rarity: "Uncommon", cost: 5,
+      desc: () => "Blind rewards pay +$3",
+      cashOutItem: () => ["The Vig", 3] },
+    vault:    { name: "Velvet Cage VIP", type: "economy", rarity: "Rare", cost: 8,
+      desc: () => "Interest cap raised to $8",
+      interestCap: 8 },
+    banker:   { name: "Bingo Banker",   type: "economy", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Mult per $4 held (max +10)",
+      onEvent: (i, c) => { c.mult += Math.min(10, Math.floor(c.run.money / 4)); } },
+    // ×mult
+    linedrive:{ name: "Line Drive",     type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×4 Mult on any Line",
+      onEvent: (i, c) => { if (c.event.key === "line") c.mult *= 4; } },
+    rococo:   { name: "Rococo",         type: "×mult", rarity: "Rare", cost: 9,
+      desc: () => "×1.5 Mult on every event",
+      onEvent: (i, c) => { c.mult *= 1.5; } },
+    baroque:  { name: "The Baroque",    type: "×mult", rarity: "Legendary", cost: 12,
+      desc: () => "×3 Mult on the final event when 2+ events fire this draw",
+      onEvent: (i, c) => { if (c.isLast && c.draw.eventsCount >= 2) c.mult *= 3; } },
+    // utility
+    foreteller:{ name: "The Foreteller", type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "The next ball is revealed before you decide to toss",
+      peek: true },
+    sparedaub:{ name: "Spare Daubers",  type: "utility", rarity: "Uncommon", cost: 6,
+      desc: () => "+1 Toss each blind",
+      extraTosses: 1 },
+    longcage: { name: "The Long Cage",  type: "utility", rarity: "Rare", cost: 10,
+      desc: () => "+3 Ball draws each blind",
+      extraDraws: 3 }
+  };
+  const sellValue = id => Math.ceil(CHARMS[id].cost / 2); // half cost, rounded up (spec §2.7)
+  const newCharm = id => ({ id, state: CHARMS[id].newState ? CHARMS[id].newState() : {} });
+  const charmFlag = (run, flag) => run.charms.reduce((v, inst) => v + (CHARMS[inst.id][flag] === true ? 0 : (CHARMS[inst.id][flag] ?? 0)), 0);
+  const anyCharmFlag = (run, flag) => run.charms.some(inst => CHARMS[inst.id][flag]);
+
+  /* ---------------- omens — consumables (spec §2.6) ----------------
+     10 cards, three power tiers, 2 carry slots. Deck manipulation = the
+     cage: The Cull / La Grande Rafle pull balls out of the bag forever
+     (purest thinning — and because the card is dealt from the pool, a
+     thinner cage means a richer hit rate that COMPOUNDS each blind); The
+     Hot Ball front-loads a ball; The Free Space daubs a square for free.
+     use kinds: instant / chooser / target (a cage-grid modal). */
+  const OMEN_SLOTS = 2;
+  const TIER_NAMES = { 1: "Minor", 2: "Major", 3: "Prime" };
+  const OMENS = {
+    // tier I — minor
+    petty:    { name: "Petty Marker",    tier: 1, cost: 2, use: "instant",
+      desc: "Level up a random scoring event from the bottom five rungs",
+      apply: run => { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); return `${e.name} leveled up`; } },
+    pocketmoney: { name: "Pocket Money", tier: 1, cost: 3, use: "instant",
+      desc: "Gain $5",
+      apply: run => { run.money += 5; return "+$5"; } },
+    cull:     { name: "The Cull",        tier: 1, cost: 4, use: "target", target: { kind: "cull", count: 1 },
+      desc: "Pull one ball out of the cage forever (thins toward your card)" },
+    // tier II — major
+    housemarker: { name: "House Marker", tier: 2, cost: 5, use: "chooser",
+      desc: "Level up a scoring event of your choice, twice" },
+    hotball:  { name: "The Hot Ball",    tier: 2, cost: 6, use: "target", target: { kind: "load", count: 1 },
+      desc: "A chosen ball is loaded — drawn early every blind" },
+    freespace:{ name: "The Free Space",  tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "Daub a random undaubed square at once, scoring it",
+      apply: () => freeDaub() },
+    tempo:    { name: "Tempo Bottle",    tier: 2, cost: 6, use: "instant", tableOnly: true,
+      desc: "+3 ball draws this blind",
+      apply: () => { blind.drawsTotal += 3; blind.drawsLeft += 3; return "+3 draws"; } },
+    // tier III — prime
+    grandledger: { name: "Grand Ledger", tier: 3, cost: 10, use: "instant",
+      desc: "Level up every scoring event",
+      apply: run => { LADDER.forEach(e => bumpLevel(run, e.key, 1)); return "all events leveled up"; } },
+    rafle:    { name: "La Grande Rafle", tier: 3, cost: 9, use: "target", target: { kind: "cull", count: 3 },
+      desc: "Pull three balls out of the cage forever" },
+    crown:    { name: "The Crown Marker", tier: 3, cost: 9, use: "instant",
+      desc: "The Chandelier levels up twice and Blackout once",
+      apply: run => { bumpLevel(run, "chandelier", 2); bumpLevel(run, "blackout", 1); return "the chandelier gleams"; } }
+  };
+  const omenSellValue = id => Math.ceil(OMENS[id].cost / 2);
+  function bumpLevel(run, key, n) { run.ladderLevels[key] = (run.ladderLevels[key] ?? 0) + n; }
+
+  /* ---------------- bosses — 10 rule-warping effects (spec §2.4) ----------------
+     One is rolled per ante (seeded). Two are the spec's signature Bingo
+     bosses (The Mute Caller, Baroque Decay). Floor-killers are ante-gated. */
+  const BOSSES = {
+    lockedcentre:{ name: "The Locked Centre",
+      desc: "The free space starts blank and can't be daubed — no pattern through the centre" },
+    censor:    { name: "The Censor",
+      desc: "A random column's daubs score nothing (the squares still daub)" },
+    shortcage: { name: "The Short Cage", minAnte: 2,
+      desc: "Five fewer ball draws this blind" },
+    inquisitor:{ name: "The Inquisitor", minAnte: 3, // removes the Daub floor entirely
+      desc: "Lone Daubs score nothing — only completed patterns score" },
+    gildedcage:{ name: "The Gilded Cage",
+      desc: "Every miss costs $1" },
+    crackedbell:{ name: "The Cracked Bell", minAnte: 2,
+      desc: "Tosses are disabled — every ball drawn must be daubed or missed" },
+    pitboss:   { name: "The Pit Boss",
+      desc: "Your most-leveled scoring event is banned this blind" },
+    mutecaller:{ name: "The Mute Caller",
+      desc: "Balls are called face-down — you toss or daub without seeing the number" },
+    decay:     { name: "Baroque Decay", minAnte: 2,
+      desc: "Before each draw, one random daubed square is erased" },
+    houseedge: { name: "The House Edge", minAnte: 3,
+      desc: "Every event's base Mult is halved (minimum 1)" }
+  };
+  const bossPool = ante => Object.keys(BOSSES).filter(id => (BOSSES[id].minAnte ?? 1) <= ante);
+  const bossId = () => (blind && blind.idx === 2 && Rouge.run.current?.boss) ? Rouge.run.current.boss : null;
+
+  // exponential target curve (spec §2.3)
+  const TARGETS = [
+    [300,450,600],[800,1200,1600],[2000,3000,4000],[5000,7500,10000],
+    [11000,16500,22000],[20000,30000,40000],[35000,52500,70000],[50000,75000,100000]
+  ];
+  const REWARDS = [3,4,5];
+  const BLIND_NAMES = ["Small Blind","Big Blind","Boss Blind"];
+
+  /* ---------------- state ---------------- */
+  let blind = null;     // {idx, target, score, drawsTotal, drawsLeft, tossesTotal, tossesLeft, won, fired, banned, censorCol, ...}
+  let card = null;      // 5×5 of {n, col, daubed, free}
+  let cage = null, cageIdx = 0; // pre-shuffled pool for this blind (popped like a shoe)
+  let pending = null;   // {ball, miss} — a drawn, unresolved ball
+  let lastSeed = "";
+  let targeting = null; // {idx, kind, left, applied, name} while a cage omen aims
+  let chooserOmenIdx = null;
+
+  /* ---------------- pattern geometry ---------------- */
+  const LINE_DEFS = (() => {
+    const L = [];
+    for (let r = 0; r < 5; r++) L.push({ id: "R" + r, col: -1, cells: [0,1,2,3,4].map(c => [r, c]) });
+    for (let c = 0; c < 5; c++) L.push({ id: "C" + c, col: c,  cells: [0,1,2,3,4].map(r => [r, c]) });
+    L.push({ id: "DM", col: -1, cells: [[0,0],[1,1],[2,2],[3,3],[4,4]] });
+    L.push({ id: "DA", col: -1, cells: [[0,4],[1,3],[2,2],[3,1],[4,0]] });
+    return L;
+  })();
+  const CORNERS = [[0,0],[0,4],[4,0],[4,4]];
+  const STAMPS = [
+    [[0,0],[0,1],[1,0],[1,1]], [[0,3],[0,4],[1,3],[1,4]],
+    [[3,0],[3,1],[4,0],[4,1]], [[3,3],[3,4],[4,3],[4,4]]
+  ];
+  const XCELLS = [[0,0],[1,1],[2,2],[3,3],[4,4],[0,4],[1,3],[3,1],[4,0]];
+  const FRAME = [[0,0],[0,1],[0,2],[0,3],[0,4],[4,0],[4,1],[4,2],[4,3],[4,4],[1,0],[2,0],[3,0],[1,4],[2,4],[3,4]];
+  const ALL24 = (() => { const a = []; for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (!(r === 2 && c === 2)) a.push([r, c]); return a; })();
+  const CHANDELIER = [[0,0],[0,1],[0,2],[0,3],[0,4],[1,1],[2,2],[3,3],[4,4],[1,3],[3,1],[4,0]];
+
+  const isD = (cd, r, c) => cd[r][c].daubed;
+  const allD = (cd, cells) => cells.every(([r, c]) => cd[r][c].daubed);
+  const cellChips = (cd, cells) => cells.reduce((s, [r, c]) => s + cd[r][c].n, 0); // free centre n=0
+
+  function eventBase(e, run = Rouge.run.current, boss = bossId()) { // ladder level (Markers) + House Edge
+    const lvl = run?.ladderLevels?.[e.key] ?? 0;
+    let chips = e.chips + lvl * e.up.c;
+    let mult = e.mult + lvl * e.up.m;
+    if (boss === "houseedge") mult = Math.max(1, Math.ceil(mult / 2));
+    return { chips, mult };
+  }
+
+  /* ---------------- card / cage dealing ----------------
+     Both take explicit (run, …) so the headless simulator consumes the
+     PRNG in the exact same order the live table does. The card is dealt
+     from the pool's available numbers per column (≥5 kept by the cull
+     floor), so a thinned cage can never strand a square. */
+  function dealCard(run, boss) {
+    const cd = [];
+    for (let r = 0; r < 5; r++) cd.push([]);
+    for (let col = 0; col < 5; col++) {
+      const candidates = run.balls.filter(b => ballCol(b.n) === col).map(b => b.n);
+      Rouge.rng.shuffle(candidates);
+      const need = col === 2 ? 4 : 5;
+      const picked = candidates.slice(0, need).sort((a, b) => a - b);
+      const rows = col === 2 ? [0, 1, 3, 4] : [0, 1, 2, 3, 4];
+      rows.forEach((r, i) => { cd[r][col] = { n: picked[i], col, daubed: false, free: false }; });
+    }
+    cd[2][2] = { n: 0, col: 2, daubed: boss !== "lockedcentre", free: true }; // free centre (blank under Locked Centre)
+    return cd;
+  }
+
+  function buildCage(run) {
+    const loadedBalls = run.balls.filter(b => run.loaded.includes(b.n));
+    const rest = run.balls.filter(b => !run.loaded.includes(b.n));
+    return Rouge.rng.shuffle(loadedBalls.slice()).concat(Rouge.rng.shuffle(rest.slice())); // loaded drawn first
+  }
+
+  function eraseRandomDaub(cd) { // Baroque Decay
+    const daubed = [];
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++)
+      if (cd[r][c].daubed && !cd[r][c].free) daubed.push([r, c]);
+    if (daubed.length === 0) return null;
+    const [r, c] = daubed[Rouge.rng.int(0, daubed.length - 1)];
+    cd[r][c].daubed = false;
+    return cd[r][c].n;
+  }
+
+  /* ---------------- pattern detection ----------------
+     Returns the events newly completed by the current board state,
+     guarding each instance with blindState.fired so it scores once. */
+  function collectPatterns(cd, fired) {
+    const ev = [];
+    for (const ln of LINE_DEFS) {
+      const daubedCells = ln.cells.filter(([r, c]) => cd[r][c].daubed);
+      const cnt = daubedCells.length;
+      if (cnt >= 3 && !fired.has("t3:" + ln.id)) { fired.add("t3:" + ln.id); ev.push({ key: "three", cells: daubedCells.slice(0, 3), col: ln.col }); }
+      if (cnt >= 4 && !fired.has("t4:" + ln.id)) { fired.add("t4:" + ln.id); ev.push({ key: "four", cells: daubedCells.slice(0, 4), col: ln.col }); }
+      if (cnt >= 5 && !fired.has("ln:" + ln.id)) { fired.add("ln:" + ln.id); ev.push({ key: "line", cells: ln.cells, col: ln.col }); }
+    }
+    const completed = LINE_DEFS.filter(ln => allD(cd, ln.cells));
+    if (completed.length >= 2 && !fired.has("double")) {
+      fired.add("double");
+      const seen = new Set(), cells = [];
+      completed.forEach(ln => ln.cells.forEach(([r, c]) => { const k = r + "," + c; if (!seen.has(k)) { seen.add(k); cells.push([r, c]); } }));
+      ev.push({ key: "double", cells, col: -1 });
+    }
+    if (allD(cd, CORNERS) && !fired.has("corners")) { fired.add("corners"); ev.push({ key: "corners", cells: CORNERS, col: -1 }); }
+    STAMPS.forEach((blk, k) => { if (allD(cd, blk) && !fired.has("stamp:" + k)) { fired.add("stamp:" + k); ev.push({ key: "stamp", cells: blk, col: -1 }); } });
+    if (allD(cd, XCELLS) && !fired.has("x")) { fired.add("x"); ev.push({ key: "x", cells: XCELLS, col: -1 }); }
+    if (allD(cd, FRAME) && !fired.has("frame")) { fired.add("frame"); ev.push({ key: "frame", cells: FRAME, col: -1 }); }
+    if (allD(cd, ALL24) && !fired.has("blackout")) { fired.add("blackout"); ev.push({ key: "blackout", cells: ALL24, col: -1 }); }
+    if (allD(cd, CHANDELIER) && !fired.has("chandelier")) { fired.add("chandelier"); ev.push({ key: "chandelier", cells: CHANDELIER, col: -1 }); }
+    return ev;
+  }
+
+  /* headless scoring of one set of newly-daubed cells — the live table
+     (resolveDraw, freeDaub) and BB.simulate share this. Mutates cd.daubed
+     was done by the caller; this scores Daub-per-cell + new patterns. */
+  function scoreDaub(run, blindState, boss, cd, daubedCells) {
+    const events = daubedCells.map(([r, c]) => ({ key: "daub", cells: [[r, c]], col: cd[r][c].col }));
+    events.push(...collectPatterns(cd, blindState.fired));
+    events.sort((a, b) => RUNG[a.key].rung - RUNG[b.key].rung);
+    const linesComplete = LINE_DEFS.filter(ln => allD(cd, ln.cells)).length;
+    const cornersDaubed = allD(cd, CORNERS);
+    const drawCtx = { eventsCount: events.length };
+    let gain = 0;
+    const details = events.map((e, idx) => {
+      const rng = RUNG[e.key];
+      let voided = null;
+      if (boss === "inquisitor" && e.key === "daub") voided = "SILENCED";
+      else if (boss === "censor" && e.key === "daub" && e.col === blindState.censorCol) voided = "CENSORED";
+      else if (boss === "pitboss" && e.key === blindState.banned) voided = "BANNED";
+      if (voided) return { name: rng.name, voided };
+      const base = eventBase(rng, run, boss);
+      const ctx = {
+        event: rng, cells: e.cells, col: e.col,
+        chips: base.chips + cellChips(cd, e.cells), mult: base.mult,
+        isFirst: idx === 0, isLast: idx === events.length - 1,
+        draw: drawCtx, board: { linesComplete, cornersDaubed }, run
+      };
+      for (const inst of run.charms) CHARMS[inst.id].onEvent?.(inst, ctx); // strict left-to-right
+      const score = Math.floor(ctx.chips * ctx.mult);
+      gain += score;
+      return { name: rng.name, chips: ctx.chips, mult: ctx.mult, score };
+    });
+    // scaling counters fire AFTER scoring, so a scaler never boosts its own trigger
+    const lineDone = events.filter(e => e.key === "line").length;
+    const patternDone = events.filter(e => PATTERN_KEYS.has(e.key)).length;
+    for (const inst of run.charms) {
+      const ch = CHARMS[inst.id];
+      for (let k = 0; k < daubedCells.length; k++) ch.onDaub?.(inst);
+      for (let k = 0; k < lineDone; k++) ch.onLineDone?.(inst);
+      for (let k = 0; k < patternDone; k++) ch.onPatternDone?.(inst);
+    }
+    run.stats.daubs += daubedCells.length;
+    run.stats.patterns += patternDone;
+    return { gain, details };
+  }
+
+  /* resolve one drawn ball against the card — headless, shared with the sim */
+  function resolveBall(run, blindState, boss, cd, ballN) {
+    const matches = [];
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++)
+      if (cd[r][c].n === ballN && !cd[r][c].daubed && !cd[r][c].free) matches.push([r, c]);
+    if (matches.length === 0) { // a miss
+      const money = { n: 0 };
+      for (const inst of run.charms) CHARMS[inst.id].onMiss?.(inst, { run, moneyGained: money });
+      if (boss === "gildedcage") { const before = run.money; run.money = Math.max(0, run.money - 1); money.n -= before - run.money; }
+      return { miss: true, daubed: [], details: [], gain: 0, moneyGained: money.n };
+    }
+    matches.forEach(([r, c]) => { cd[r][c].daubed = true; });
+    const res = scoreDaub(run, blindState, boss, cd, matches);
+    return { miss: false, daubed: matches, details: res.details, gain: res.gain, moneyGained: 0 };
+  }
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString("en-US");
+
+  /* ---------------- blind flow ---------------- */
+  function ensureRunShape(run) {
+    run.activeTags ??= [];
+    run.blindStatus ??= [null, null, null];
+    run.stats ??= { draws: 0, daubs: 0, patterns: 0, best: 0, beaten: 0, skips: 0, tosses: 0 };
+    if (!("tags" in run)) run.tags = null;
+    run.charms ??= [];
+    if (!("shop" in run)) run.shop = null;
+    run.consumables ??= [];
+    run.ladderLevels ??= {};
+    if (!run.balls) run.balls = freshBalls();
+    run.loaded ??= [];
+    if (!("boss" in run)) run.boss = null;
+  }
+
+  function startBlind(idx) {
+    const run = Rouge.run.current;
+    ensureRunShape(run);
+    if (targeting) endTargeting(targeting.applied > 0); // stale aiming from a restarted blind
+    const usedTags = [];
+    let draws = DRAWS_PER_BLIND + charmFlag(run, "extraDraws");
+    let tosses = TOSSES_PER_BLIND + charmFlag(run, "extraTosses");
+    let rewardMult = 1;
+    if (run.activeTags.includes("tempo")) { draws += 3; usedTags.push("tempo"); }
+    if (run.activeTags.includes("roller")) { rewardMult = 2; usedTags.push("roller"); }
+    const boss = idx === 2 ? run.boss : null;
+    if (boss === "shortcage") draws = Math.max(1, draws - 5);
+    if (boss === "crackedbell") tosses = 0;
+    blind = { idx, target: TARGETS[run.ante - 1][idx], score: 0,
+              drawsTotal: draws, drawsLeft: draws,
+              tossesTotal: tosses, tossesLeft: tosses,
+              won: false, rewardMult, usedTags,
+              fired: new Set(), banned: null, censorCol: -1 };
+    if (boss === "pitboss") {
+      let best = LADDER[0];
+      for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+      blind.banned = best.key;
+    }
+    card = dealCard(run, boss);   // consumes rng — same order as the sim
+    cage = buildCage(run);        // consumes rng
+    cageIdx = 0;
+    if (boss === "censor") blind.censorCol = Rouge.rng.int(0, 4);
+    pending = null;
+    const bb = $("boss-banner");
+    if (boss) {
+      bb.hidden = false;
+      bb.innerHTML = `&#9819; <b>${BOSSES[boss].name}</b> &mdash; ${BOSSES[boss].desc}` +
+        (blind.banned ? ` (<b>${RUNG[blind.banned]?.name ?? blind.banned}</b>)` : "") +
+        (blind.censorCol >= 0 ? ` (<b>${LETTERS[blind.censorCol]} column</b>)` : "");
+      Rouge.audio.play("boss");
+    } else bb.hidden = true;
+    $("breakdown-list").innerHTML = '<li class="flavor">Event breakdown appears here after each draw.</li>';
+    $("result-label").textContent = "The cage is loaded. Draw when ready.";
+    $("result-gain").textContent = "";
+    $("win-banner").classList.remove("show");
+    $("win-banner").innerHTML = "";
+    renderCard();
+    renderBall();
+    renderCharms();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    syncControls();
+    Rouge.router.go("table");
+  }
+
+  /* ---------------- the Draw — live table flow ----------------
+     Draw a ball → it lands PENDING → Daub it (resolve & score) or Toss
+     it (discard, draw the next — the discard analog). Baroque Decay
+     erases a daub at the start of each fresh draw; The Mute Caller hides
+     the ball until it resolves; The Foreteller reveals the next ball. */
+  const popCage = () => cage[(cageIdx++) % cage.length]; // wraps if a thinned cage is over-drawn (rare; keeps draws safe)
+
+  function drawBall() {
+    if (!blind || blind.won || pending || blind.drawsLeft === 0 || targeting) return;
+    const run = Rouge.run.current;
+    const boss = bossId();
+    if (boss === "decay") { const erased = eraseRandomDaub(card); if (erased != null) renderCard(); }
+    pending = { ball: popCage(), miss: false };
+    Rouge.run.persist();
+    Rouge.audio.play("draw");
+    $("result-gain").textContent = "";
+    $("result-label").textContent = boss === "mutecaller" ? "A ball rests face-down." : "Daub it, or toss it back.";
+    renderBall();
+    syncControls();
+  }
+
+  function tossBall() {
+    if (!pending || blind.tossesLeft === 0 || bossId() === "crackedbell") return;
+    blind.tossesLeft--;
+    Rouge.run.current.stats.tosses++;
+    pending = { ball: popCage(), miss: false };
+    Rouge.run.persist();
+    Rouge.audio.play("draw");
+    renderBall();
+    renderRail();
+    syncControls();
+  }
+
+  function resolveDraw() {
+    if (!pending) return;
+    const run = Rouge.run.current;
+    const boss = bossId();
+    const ballN = pending.ball.n;
+    pending = null;
+    const res = resolveBall(run, blind, boss, card, ballN);
+    blind.drawsLeft--;
+    run.stats.draws++;
+    blind.score += res.gain;
+    if (res.gain > run.stats.best) run.stats.best = res.gain;
+    if (!res.miss) Rouge.audio.play("daub");
+
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    $("result-label").textContent = res.miss
+      ? (boss === "gildedcage" ? `${ballLabel(ballN)} — a miss, and the cage charges a dollar.` : `${ballLabel(ballN)} — not on the card.`)
+      : (res.details.length > 1 ? `${ballLabel(ballN)} — the card lights up!` : `${ballLabel(ballN)} daubed.`);
+    $("result-gain").textContent = res.gain > 0
+      ? `+${fmt(res.gain)}${res.moneyGained ? ` · ${res.moneyGained > 0 ? "+" : ""}$${res.moneyGained}` : ""}`
+      : (res.moneyGained ? `${res.moneyGained > 0 ? "+" : ""}$${res.moneyGained}` : "");
+    $("breakdown-list").innerHTML = res.details.length
+      ? res.details.map(d => d.voided
+        ? `<li><span class="ev">${d.name}</span><span class="math"><b style="color:var(--lipstick)">${d.voided}</b></span></li>`
+        : `<li><span class="ev">${d.name}</span><span class="math"><span class="c">${fmt(d.chips)}</span> × <span class="m">${fmtMult(d.mult)}</span> = <b>${fmt(d.score)}</b></span></li>`).join("")
+      : '<li class="flavor">The cage keeps this one.</li>';
+
+    renderCard();
+    renderBall(res.miss ? ballN : null);
+    renderCharms(); // scaling charms update their descriptions
+    renderRail();   // before win/lose — loseRun abandons the run and renderRail would bail
+    if (blind.score >= blind.target && !blind.won) winBlind();
+    else if (blind.drawsLeft === 0) { syncControls(); Rouge.run.persist(); loseRun(); return; }
+    syncControls();
+    Rouge.run.persist();
+  }
+
+  /* The Free Space omen — daub a random undaubed numbered square and
+     score it as if drawn (table only). */
+  function freeDaub() {
+    const undaubed = [];
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++)
+      if (!card[r][c].daubed && !card[r][c].free) undaubed.push([r, c]);
+    if (undaubed.length === 0) return "the card is already full";
+    const [r, c] = undaubed[Rouge.rng.int(0, undaubed.length - 1)];
+    card[r][c].daubed = true;
+    const run = Rouge.run.current, boss = bossId();
+    const res = scoreDaub(run, blind, boss, card, [[r, c]]);
+    blind.score += res.gain;
+    if (res.gain > run.stats.best) run.stats.best = res.gain;
+    const fmtMult = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+    $("breakdown-list").innerHTML = res.details.map(d => d.voided
+      ? `<li><span class="ev">${d.name}</span><span class="math"><b style="color:var(--lipstick)">${d.voided}</b></span></li>`
+      : `<li><span class="ev">${d.name}</span><span class="math"><span class="c">${fmt(d.chips)}</span> × <span class="m">${fmtMult(d.mult)}</span> = <b>${fmt(d.score)}</b></span></li>`).join("");
+    $("result-gain").textContent = res.gain > 0 ? `+${fmt(res.gain)}` : "";
+    renderCard();
+    renderRail();
+    if (blind.score >= blind.target && !blind.won) winBlind();
+    return `free daub — ${ballLabel(card[r][c].n)}`;
+  }
+
+  function loseRun() { endRun(false); }
+  function victory() { endRun(true); }
+
+  function endRun(winner) {
+    const run = Rouge.run.current;
+    lastSeed = run.seed;
+    $("overlay-title").textContent = winner ? "The House Is Yours" : "Run Over";
+    $("overlay-title").className = winner ? "" : "lose";
+    $("overlay-text").textContent = winner
+      ? "Eight antes cleared. Bingo Baroque calls its last number."
+      : `The cage ran dry — score ${fmt(blind.score)} of ${fmt(blind.target)}.`;
+    $("overlay-stats").innerHTML = [
+      ["Seed", run.seed],
+      ["Reached", `Ante ${run.ante} — ${BLIND_NAMES[blind.idx]}`],
+      ["Money", `$${run.money}`],
+      ["Blinds beaten", run.stats.beaten],
+      ["Blinds skipped", run.stats.skips],
+      ["Draws taken", run.stats.draws],
+      ["Squares daubed", run.stats.daubs],
+      ["Patterns made", run.stats.patterns],
+      ["Best draw", fmt(run.stats.best)]
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    $("overlay").classList.add("show");
+    Rouge.run.abandon();
+  }
+
+  /* ---------------- omens — use / target / choose ----------------
+     Targeted omens aim at the cage: a modal shows all 75 ball slots in
+     B/I/N/G/O columns, your card's numbers lit, daubs marked. The Cull
+     pulls balls out; The Hot Ball loads one to the front. Between draws. */
+  function canUseOmen(o) {
+    if (targeting || chooserOmenIdx !== null) return false;
+    const onTable = Rouge.router.current === "table";
+    const midDraw = !!pending;
+    if (o.use === "target") return onTable && !!blind && !blind.won && !midDraw;
+    if (o.tableOnly) return onTable && !!blind && !blind.won && !midDraw && blind.drawsLeft > 0;
+    return !midDraw || !onTable; // instants & choosers wait for the draw to resolve
+  }
+
+  function useOmen(idx) {
+    const run = Rouge.run.current;
+    const o = OMENS[run.consumables[idx]];
+    if (!o || !canUseOmen(o)) return;
+    Rouge.audio.play("chip");
+    if (o.use === "instant") {
+      const note = o.apply(run);
+      consumeOmen(idx, note);
+    } else if (o.use === "chooser") {
+      openChooser(idx);
+    } else { // target the cage
+      targeting = { idx, kind: o.target.kind, left: o.target.count, applied: 0, name: o.name };
+      openCageModal();
+    }
+  }
+
+  function consumeOmen(idx, note) {
+    const run = Rouge.run.current;
+    run.consumables.splice(idx, 1);
+    Rouge.run.persist();
+    renderOmens();
+    renderLadder();
+    renderRail();
+    if (Rouge.router.current === "shop") renderShop();
+    if (note && Rouge.router.current === "table") $("result-label").textContent = note;
+    syncControls();
+  }
+
+  const colCount = (col, run = Rouge.run.current) => run.balls.filter(b => ballCol(b.n) === col).length;
+  function omenEligible(kind, n) {
+    const run = Rouge.run.current;
+    if (kind === "cull") return colCount(ballCol(n), run) > MIN_PER_COL; // keep the column dealable
+    if (kind === "load") return !run.loaded.includes(n);
+    return false;
+  }
+
+  function openCageModal() {
+    $("chooser-title").textContent = targeting.name;
+    $("chooser-options").innerHTML = "";
+    $("chooser-cage").hidden = false;
+    renderCageGrid();
+    $("chooser").classList.add("show");
+  }
+
+  function renderCageGrid() {
+    const run = Rouge.run.current;
+    const onCard = new Set(), daubedNums = new Set();
+    if (card) for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+      const cell = card[r][c];
+      if (!cell.free) { onCard.add(cell.n); if (cell.daubed) daubedNums.add(cell.n); }
+    }
+    const note = $("chooser-note");
+    note.hidden = false;
+    note.textContent = targeting.kind === "cull"
+      ? `Click ${targeting.left} ball to pull (each column keeps ${MIN_PER_COL}). Lit balls are on your card — pull the dark ones.`
+      : `Click ${targeting.left} ball to load to the front of the cage.`;
+    const wrap = $("chooser-cage");
+    wrap.innerHTML = '<div class="cage-grid" id="cage-grid"></div>';
+    const grid = $("cage-grid");
+    for (let col = 0; col < 5; col++) {
+      const colDiv = document.createElement("div");
+      colDiv.className = "cage-col";
+      colDiv.innerHTML = `<div class="ch">${LETTERS[col]}</div>`;
+      run.balls.filter(b => ballCol(b.n) === col).sort((a, b) => a.n - b.n).forEach(b => {
+        const el = document.createElement("div");
+        const elig = omenEligible(targeting.kind, b.n);
+        el.className = "cage-ball" + (onCard.has(b.n) ? " oncard" : "") +
+          (daubedNums.has(b.n) ? " daubed" : "") + (run.loaded.includes(b.n) ? " loaded" : "") +
+          (elig ? " pick" : "");
+        el.textContent = b.n;
+        if (elig) el.addEventListener("click", () => applyTarget(b.n));
+        colDiv.appendChild(el);
+      });
+      grid.appendChild(colDiv);
+    }
+    $("chooser-cancel").textContent = targeting.applied > 0 ? "Done" : "Cancel";
+  }
+
+  function applyTarget(n) {
+    const run = Rouge.run.current;
+    if (targeting.kind === "cull") {
+      const i = run.balls.findIndex(b => b.n === n);
+      if (i >= 0) run.balls.splice(i, 1);
+      run.loaded = run.loaded.filter(x => x !== n);
+      if (cage) { // pull it from the live cage too, if not yet drawn
+        const j = cage.findIndex((b, k) => k >= cageIdx && b.n === n);
+        if (j >= 0) cage.splice(j, 1);
+      }
+    } else if (targeting.kind === "load") {
+      if (!run.loaded.includes(n)) run.loaded.push(n);
+      if (cage) { // jump it to the next draw this blind
+        const j = cage.findIndex((b, k) => k >= cageIdx && b.n === n);
+        if (j >= cageIdx) { const [b] = cage.splice(j, 1); cage.splice(cageIdx, 0, b); }
+      }
+    }
+    targeting.applied++;
+    targeting.left--;
+    Rouge.run.persist();
+    if (targeting.left === 0) endTargeting(true);
+    else renderCageGrid();
+  }
+
+  function endTargeting(consume) {
+    const idx = targeting.idx;
+    targeting = null;
+    $("chooser").classList.remove("show");
+    $("chooser-note").hidden = true;
+    $("chooser-cage").hidden = true;
+    $("chooser-cage").innerHTML = "";
+    $("chooser-cancel").textContent = "Cancel";
+    if (consume) consumeOmen(idx, "the cage is thinner now");
+    else renderOmens();
+    renderCard();
+    renderRail();
+    syncControls();
+  }
+
+  function openChooser(idx) { // House Marker — pick a ladder rung
+    chooserOmenIdx = idx;
+    const run = Rouge.run.current;
+    $("chooser-title").textContent = "Choose an event";
+    $("chooser-note").hidden = true;
+    $("chooser-cage").hidden = true;
+    const opts = $("chooser-options");
+    opts.innerHTML = "";
+    LADDER.forEach(e => {
+      const lvl = run.ladderLevels[e.key] ?? 0;
+      const btn = document.createElement("button");
+      btn.innerHTML = `<span>${e.name}</span><span class="lv">lv${lvl + 1} &rarr; lv${lvl + 3}</span>`;
+      btn.addEventListener("click", () => {
+        bumpLevel(run, e.key, 2); // House Marker levels twice
+        $("chooser").classList.remove("show");
+        consumeOmen(chooserOmenIdx, `${e.name} leveled up`);
+        chooserOmenIdx = null;
+      });
+      opts.appendChild(btn);
+    });
+    $("chooser").classList.add("show");
+  }
+
+  /* ---------------- shop ---------------- */
+  /* ---------------- rendering — the card & caller ---------------- */
+  function renderCard() {
+    const el = $("bb-card");
+    if (!el) return;
+    el.innerHTML = "";
+    for (let c = 0; c < 5; c++) {
+      const h = document.createElement("div");
+      h.className = "bb-colhead" + (c === 2 ? " cen" : "");
+      h.textContent = LETTERS[c];
+      el.appendChild(h);
+    }
+    if (!card) return;
+    const censor = blind ? blind.censorCol : -1;
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+      const cell = card[r][c];
+      const d = document.createElement("div");
+      d.className = "bb-cell" + (cell.daubed ? " daubed" : "") + (cell.free ? " free" : "") +
+        (cell.free && !cell.daubed && bossId() === "lockedcentre" ? " locked" : "") +
+        (c === censor ? " censored" : "");
+      d.innerHTML = cell.free ? (bossId() === "lockedcentre" ? "<span>LOCK</span>" : "<span>FREE</span>") : `<span>${cell.n}</span>`;
+      el.appendChild(d);
+    }
+  }
+
+  function renderBall(resolvedMissN = null) {
+    const el = $("bb-ball"), peek = $("bb-peek");
+    el.className = "bb-ball";
+    if (pending) {
+      if (bossId() === "mutecaller") { el.classList.add("hidden-cup"); el.innerHTML = `<span class="bn">?</span>`; }
+      else el.innerHTML = `<span class="bl">${ballLetter(pending.ball.n)}</span><span class="bn">${pending.ball.n}</span>`;
+      const showPeek = anyCharmFlag(Rouge.run.current, "peek") && bossId() !== "mutecaller" && cageIdx < cage.length;
+      peek.textContent = showPeek ? `Next if you toss: ${ballLabel(cage[cageIdx].n)}` : "";
+    } else if (resolvedMissN != null) {
+      el.classList.add("miss");
+      el.innerHTML = `<span class="bl">${ballLetter(resolvedMissN)}</span><span class="bn">${resolvedMissN}</span>`;
+      peek.textContent = "";
+    } else {
+      el.classList.add("empty");
+      el.innerHTML = `<span class="bn">?</span>`;
+      peek.textContent = "";
+    }
+    $("cage-chip").textContent = `CAGE ${cage ? cage.length - cageIdx : "—"}`;
+  }
+
+  function renderRail() {
+    const run = Rouge.run.current;
+    if (!run || !blind) return;
+    $("rail-blind").textContent = BLIND_NAMES[blind.idx].replace(" Blind", "");
+    $("rail-target").textContent = fmt(blind.target);
+    $("rail-score").textContent = fmt(blind.score);
+    $("rail-draws").textContent = `${blind.drawsLeft} / ${blind.drawsTotal}`;
+    $("rail-tosses").textContent = `${blind.tossesLeft} / ${blind.tossesTotal}`;
+    $("rail-money").textContent = `$${run.money}`;
+    $("rail-ante").textContent = `${run.ante} / 8`;
+    $("rail-tags").textContent = run.activeTags.length
+      ? run.activeTags.map(t => TAGS[t].name.replace(" Tag", "")).join(" · ")
+      : "—";
+  }
+
+  function syncControls() {
+    const lock = !!targeting || !blind || blind.won;
+    $("btn-draw").disabled = lock || !!pending || blind.drawsLeft === 0;
+    const showPending = !lock && !!pending;
+    $("btn-resolve").hidden = !showPending;
+    $("btn-toss").hidden = !showPending || blind.tossesLeft === 0 || bossId() === "crackedbell";
+    $("btn-toss").textContent = `Toss (${blind ? blind.tossesLeft : 0})`;
+    $("cage-chip").textContent = `CAGE ${cage ? cage.length - cageIdx : "—"}`;
+  }
+
+  /* ---------------- BB.simulate — headless balance harness ----------------
+     Plays n seeded runs through the REAL core (dealCard, buildCage,
+     resolveBall, scoreDaub, eraseRandomDaub, buildCashout, pickStock)
+     with a greedy bot:
+     - draws, and tosses misses while tosses remain (blind under The Mute
+       Caller, which it can't read; never under The Cracked Bell)
+     - buys any affordable charm/omen, additive charms left of ×mult
+     - omens used on acquisition: markers level (Daub→lv4 then Line),
+       The Cull / La Grande Rafle thin the cage toward the floor (always
+       safe — the card is dealt from the pool), The Hot Ball loads, The
+       Free Space and Tempo Bottle are held and used at the next blind
+     Touches neither the DOM nor the live run; restores the RNG state. */
+  const isMiss = (cd, n) => {
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++)
+      if (cd[r][c].n === n && !cd[r][c].daubed && !cd[r][c].free) return false;
+    return true;
+  };
+  function cullBalls(run, count) { // thin the largest columns; the floor keeps every column dealable
+    for (let k = 0; k < count; k++) {
+      let bestCol = -1, bestCnt = MIN_PER_COL;
+      for (let col = 0; col < 5; col++) { const cc = colCount(col, run); if (cc > bestCnt) { bestCnt = cc; bestCol = col; } }
+      if (bestCol < 0) return;
+      const inCol = run.balls.filter(b => ballCol(b.n) === bestCol);
+      const victim = inCol[inCol.length - 1].n; // highest number in the fattest column
+      const i = run.balls.findIndex(b => b.n === victim);
+      run.balls.splice(i, 1);
+      run.loaded = run.loaded.filter(x => x !== victim);
+    }
+  }
+
+  function botPlayBlind(run, blindState, boss) {
+    const cd = dealCard(run, boss);
+    const cg = buildCage(run);
+    let ci = 0;
+    if (boss === "censor") blindState.censorCol = Rouge.rng.int(0, 4);
+    // held table omens
+    for (let i = run.consumables.length - 1; i >= 0; i--) {
+      const id = run.consumables[i];
+      if (id === "tempo") { blindState.drawsTotal += 3; blindState.drawsLeft += 3; run.consumables.splice(i, 1); }
+      else if (id === "freespace") {
+        const u = [];
+        for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (!cd[r][c].daubed && !cd[r][c].free) u.push([r, c]);
+        if (u.length) { const [r, c] = u[Rouge.rng.int(0, u.length - 1)]; cd[r][c].daubed = true;
+          const res = scoreDaub(run, blindState, boss, cd, [[r, c]]); blindState.score += res.gain;
+          if (res.gain > run.stats.best) run.stats.best = res.gain; }
+        run.consumables.splice(i, 1);
+      }
+    }
+    const pop = () => cg[(ci++) % cg.length];
+    while (blindState.drawsLeft > 0 && !blindState.won) {
+      if (boss === "decay") eraseRandomDaub(cd);
+      let ball = pop();
+      while (blindState.tossesLeft > 0 && boss !== "crackedbell" && boss !== "mutecaller" && isMiss(cd, ball.n)) {
+        blindState.tossesLeft--; run.stats.tosses++; ball = pop();
+      }
+      const res = resolveBall(run, blindState, boss, cd, ball.n);
+      blindState.drawsLeft--;
+      run.stats.draws++;
+      blindState.daubs += res.daubed.length;
+      blindState.score += res.gain;
+      if (res.gain > run.stats.best) run.stats.best = res.gain;
+      if (blindState.score >= blindState.target) blindState.won = true;
+    }
+  }
+
+  function simOneRun(seed) {
+    Rouge.rng.init(seed);
+    const run = { seed, ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+      blindStatus: [null, null, null],
+      stats: { draws: 0, daubs: 0, patterns: 0, best: 0, beaten: 0, skips: 0, tosses: 0 },
+      charms: [], shop: null, consumables: [], ladderLevels: {},
+      balls: freshBalls(), loaded: [], boss: null };
+    const rec = { seed, blinds: [], result: null, ante: 1 };
+    const bugs = [];
+    const assert = (cond, msg) => { if (!cond) bugs.push(`${seed}: ${msg}`); };
+
+    const useShopOmens = () => {
+      for (let i = run.consumables.length - 1; i >= 0; i--) {
+        const id = run.consumables[i];
+        if (id === "pocketmoney") run.money += 5;
+        else if (id === "petty") { const e = Rouge.rng.pick(LADDER.slice(0, 5)); bumpLevel(run, e.key, 1); }
+        else if (id === "housemarker") bumpLevel(run, (run.ladderLevels.daub ?? 0) >= 4 ? "line" : "daub", 2); // floor first
+        else if (id === "grandledger") LADDER.forEach(e => bumpLevel(run, e.key, 1));
+        else if (id === "crown") { bumpLevel(run, "chandelier", 2); bumpLevel(run, "blackout", 1); }
+        else if (id === "cull") cullBalls(run, 1);
+        else if (id === "rafle") cullBalls(run, 3);
+        else if (id === "hotball") { const b = run.balls.find(x => !run.loaded.includes(x.n)); if (b) run.loaded.push(b.n); }
+        else continue; // freespace & tempo are held for the next blind
+        run.consumables.splice(i, 1);
+      }
+    };
+    const shop = () => {
+      const stock = pickStock(2, run);
+      for (const entry of stock) {
+        if (!entry) continue;
+        if (entry.kind === "charm") {
+          if (run.money >= CHARMS[entry.id].cost && run.charms.length < CHARM_SLOTS) {
+            run.money -= CHARMS[entry.id].cost;
+            run.charms.push(newCharm(entry.id));
+          }
+        } else if (run.money >= OMENS[entry.id].cost && run.consumables.length < OMEN_SLOTS) {
+          run.money -= OMENS[entry.id].cost;
+          run.consumables.push(entry.id);
+        }
+      }
+      run.charms.sort((a, b) => (CHARMS[a.id].type === "×mult") - (CHARMS[b.id].type === "×mult"));
+      useShopOmens();
+    };
+
+    for (let ante = 1; ante <= 8; ante++) {
+      run.ante = ante;
+      run.tags = { small: Rouge.rng.pick(Object.keys(TAGS)), big: Rouge.rng.pick(Object.keys(TAGS)) };
+      run.boss = Rouge.rng.pick(bossPool(ante));
+      for (let bi = 0; bi <= 2; bi++) {
+        const boss = bi === 2 ? run.boss : null;
+        let draws = DRAWS_PER_BLIND + charmFlag(run, "extraDraws");
+        let tosses = TOSSES_PER_BLIND + charmFlag(run, "extraTosses");
+        if (boss === "shortcage") draws = Math.max(1, draws - 5);
+        if (boss === "crackedbell") tosses = 0;
+        const blindState = { idx: bi, target: TARGETS[ante - 1][bi], score: 0,
+          drawsTotal: draws, drawsLeft: draws, tossesTotal: tosses, tossesLeft: tosses,
+          won: false, rewardMult: 1, usedTags: [], fired: new Set(), banned: null, censorCol: -1, daubs: 0 };
+        if (boss === "pitboss") {
+          let best = LADDER[0];
+          for (const e of LADDER) if ((run.ladderLevels[e.key] ?? 0) >= (run.ladderLevels[best.key] ?? 0)) best = e;
+          blindState.banned = best.key;
+        }
+        botPlayBlind(run, blindState, boss);
+        rec.blinds.push({ ante, blind: bi, target: blindState.target, score: blindState.score,
+          ratio: +(blindState.score / blindState.target).toFixed(3), won: blindState.won,
+          daubs: blindState.daubs, draws: blindState.drawsTotal - blindState.drawsLeft,
+          money: run.money, boss: boss ?? undefined });
+        assert(Number.isFinite(blindState.score) && blindState.score >= 0, `bad score A${ante}/${bi}`);
+        if (!blindState.won) { rec.result = `lost A${ante} ${["Small", "Big", "Boss"][bi]}`; rec.ante = ante; return { rec, bugs }; }
+        const co = buildCashout(run, blindState);
+        run.money += co.total;
+        assert(Number.isFinite(run.money) && run.money >= 0, `bad money A${ante}/${bi}`);
+        run.stats.beaten++;
+        run.charms.forEach(inst => CHARMS[inst.id].onBlindBeaten?.(inst));
+        shop();
+      }
+    }
+    rec.result = "WIN";
+    rec.ante = 9;
+    return { rec, bugs };
+  }
+
+  function simulate(runs = 50) {
+    const saved = Rouge.rng.getState();
+    const out = { runs: [], bugs: [], agg: null };
+    for (let r = 1; r <= runs; r++) {
+      try {
+        const { rec, bugs } = simOneRun(`SIM-${r}`);
+        out.runs.push(rec);
+        out.bugs.push(...bugs);
+      } catch (err) {
+        out.bugs.push(`SIM-${r} crashed: ${err.message}`);
+      }
+    }
+    Rouge.rng.setState(saved);
+    const agg = { wins: 0, anteHist: {}, byBlind: {}, totDaubs: 0, totDraws: 0, blinds: 0 };
+    for (const rec of out.runs) {
+      if (rec.result === "WIN") agg.wins++;
+      agg.anteHist[rec.ante] = (agg.anteHist[rec.ante] ?? 0) + 1;
+      for (const b of rec.blinds) {
+        agg.totDaubs += b.daubs; agg.totDraws += b.draws; agg.blinds++;
+        const key = `A${b.ante}-${["S", "B", "X"][b.blind]}`;
+        const k = (agg.byBlind[key] ??= { n: 0, won: 0, ratios: [], daubs: 0 });
+        k.n++; k.daubs += b.daubs;
+        if (b.won) k.won++;
+        k.ratios.push(b.ratio);
+      }
+    }
+    for (const k of Object.values(agg.byBlind)) {
+      k.ratios.sort((a, b) => a - b);
+      k.median = k.ratios[Math.floor(k.ratios.length / 2)];
+      k.pass = +(k.won / k.n).toFixed(2);
+      k.avgDaubs = +(k.daubs / k.n).toFixed(1);
+      delete k.ratios; delete k.daubs;
+    }
+    agg.hitRate = +(agg.totDaubs / agg.totDraws).toFixed(3);
+    agg.avgDaubsPerBlind = +(agg.totDaubs / agg.blinds).toFixed(1);
+    out.agg = agg;
+    return out;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLadder();
+    $("btn-draw").addEventListener("click", drawBall);
+    $("btn-resolve").addEventListener("click", resolveDraw);
+    $("btn-toss").addEventListener("click", tossBall);
+    $("overlay-btn").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null; card = null; cage = null; pending = null;
+      document.getElementById("btn-continue").disabled = true;
+      document.getElementById("seed-input").value = lastSeed; // easy retry of the same seed
+      Rouge.router.go("menu");
+    });
+    $("overlay-new").addEventListener("click", () => {
+      $("overlay").classList.remove("show");
+      blind = null; card = null; cage = null; pending = null;
+      Rouge.run.start(""); // fresh random seed
+    });
+    $("btn-reroll").addEventListener("click", rerollShop);
+    $("chooser-cancel").addEventListener("click", () => {
+      if (targeting) { endTargeting(targeting.applied > 0); return; } // Done consumes, Cancel restores
+      $("chooser").classList.remove("show");
+      chooserOmenIdx = null;
+    });
+    window.addEventListener("rouge:screen", e => {
+      const run = Rouge.run.current;
+      if (e.detail.screen === "blind-select") {
+        if (run) {
+          ensureRunShape(run);
+          if (run.shop) { run.shop = null; Rouge.run.persist(); } // shop closes; next visit re-rolls
+        }
+        renderBlindSelect();
+      }
+      if (e.detail.screen === "shop" && run) {
+        ensureRunShape(run);
+        if (!run.shop) rollShop();
+        renderShop();
+        renderCharms();
+        renderOmens();
+      }
+    });
+  });
+
+  // forceNext: test hook — make ball n the next pop (must still be in the pool)
+  function forceNext(n) {
+    if (!cage) return false;
+    let j = cage.findIndex((b, k) => k >= cageIdx && b.n === n);
+    if (j < 0) { const b = Rouge.run.current.balls.find(x => x.n === n); if (!b) return false; cage.splice(cageIdx, 0, b); j = cageIdx; }
+    const [b] = cage.splice(j, 1);
+    cage.splice(cageIdx, 0, b);
+    return true;
+  }
+
+  /* ---------------- shared UI / economy layer (rouge-engine.js) ----------------
+     The shop, charm bar, omen bar, ladder readout, blind-select, and the
+     cash-out / blind-progression flow live in RougeUI now; these thin
+     delegators keep the call sites and the exported API stable. */
+  function renderCharms() { return RougeUI.renderCharms(); }
+  function renderOmens() { return RougeUI.renderOmens(); }
+  function renderShop() { return RougeUI.renderShop(); }
+  function renderLadder() { return RougeUI.renderLadder(); }
+  function renderBlindSelect() { return RougeUI.renderBlindSelect(); }
+  function rollShop() { return RougeUI.rollShop(); }
+  function rerollShop() { return RougeUI.rerollShop(); }
+  function buyStock(i) { return RougeUI.buyStock(i); }
+  function sellCharm(i) { return RougeUI.sellCharm(i); }
+  function moveCharm(i, d) { return RougeUI.moveCharm(i, d); }
+  function sellOmen(i) { return RougeUI.sellOmen(i); }
+  function skipBlind(i) { return RougeUI.skipBlind(i); }
+  function cashOut() { return RougeUI.cashOut(); }
+  function winBlind(b) { return RougeUI.winBlind(b); }
+  function buildCashout(run, bs) { return RougeUI.buildCashout(run, bs); }
+  function pickStock(n, r) { return RougeUI.pickStock(n, r); }
+
+  /* plug the shared UI / economy engine (rouge-engine.js) */
+  RougeUI.configure({
+    CHARMS, OMENS, LADDER, TAGS, BOSSES, TIER_NAMES,
+    CHARM_SLOTS, OMEN_SLOTS, TARGETS, REWARDS, BLIND_NAMES, INTEREST_STEP, INTEREST_CAP, omenShare: 0.4,
+    sellValue, omenSellValue, newCharm, bossPool,
+    playField: "drawsLeft", playWord: "draws", ladderLabel: "Ladder",
+    ensureRunShape, renderRail, startBlind, canUseOmen, useOmen, onVictory: victory,
+    getBlind: () => blind, isLocked: () => !!targeting
+  });
+
+  return { LADDER, RUNG, TAGS, CHARMS, CHARM_SLOTS, OMENS, OMEN_SLOTS, BOSSES,
+           DRAWS_PER_BLIND, TOSSES_PER_BLIND, MIN_PER_COL,
+           freshBalls, ballLabel, ballCol, sellValue, omenSellValue,
+           get blind() { return blind; }, get card() { return card; },
+           get cage() { return cage; }, get cageIdx() { return cageIdx; }, get pending() { return pending; },
+           startBlind, skipBlind, drawBall, tossBall, resolveDraw, forceNext,
+           cashOut, buyStock, sellCharm, moveCharm, rerollShop,
+           useOmen, sellOmen, simulate };
+})();
+window.BB = BB;
+
+/* plug Bingo Baroque into the shared spine (rouge-spine.js) */
+Rouge.run.configure({
+  key: "run:bb",
+  createState: seed => ({ seed, createdAt: Date.now(), screen: "blind-select",
+    ante: 1, blind: 0, money: 4, tags: null, activeTags: [],
+    blindStatus: [null, null, null], stats: { draws: 0, daubs: 0, patterns: 0, best: 0, beaten: 0, skips: 0, tosses: 0 },
+    charms: [], shop: null, consumables: [], ladderLevels: {}, balls: null, loaded: [], boss: null })
+});
+</script>
+</body>
+</html>
